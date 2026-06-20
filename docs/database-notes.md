@@ -1,0 +1,30 @@
+# Database Notes
+
+- Use normalized relationship tables instead of hardcoding complex arrays.
+- Member primary keys are Prisma-generated IDs. Add a separate readable `familyCode` later if needed; do not use readable codes as primary keys.
+- Use audit logs for sensitive actions.
+- Use soft delete where useful, especially for member records that may need history.
+- Use metadata JSON for extensibility, not as a replacement for important columns.
+- Privacy masking must happen on the server.
+- Admin tooling can display real member names for management. Mobile/member-facing responses must mask hidden female full names.
+- Mobile API shapes can be derived from normalized database tables.
+- Do not expose hidden female names to normal members.
+- Family graph traversal may include hidden female members internally, but masking must happen before mobile responses are returned.
+- Store relationships in normalized `FamilyRelationship` rows and de-duplicate visual spouse connections at response-build time.
+- Do not expose vote counts before result announcement.
+- Funds use ledger-style `FundTransaction` records. Confirmed rows only count toward balances.
+- Fund transaction amounts are always positive; transaction type determines whether a row is credit or debit.
+- Contribution requests keep a cached `paidAmount`, synchronized from confirmed contribution-like transactions tied to the request.
+- Payment fields are references only. No payment gateway, card storage, or provider webhook handling exists in Phase 4.
+- Directory is a view over `Member`, extended by `MemberDirectorySetting`, `MemberTag`, `MemberTagAssignment`, and `MemberHelpRequest`.
+- `MemberDirectorySetting.showPhone` gates phone visibility in mobile APIs. Admin APIs can always see member phone values.
+- Directory-hidden members are omitted from mobile directory search except for the member viewing their own profile/settings.
+- Member tags are global definitions assigned to members; disabling a tag uses `isActive=false`.
+- Help requests are workflow records, not chat messages. Phase 5 only calls the notification placeholder.
+- Elections separate voter participation from anonymous encrypted ballots. `ElectionVoter` must not store `candidateId`; `ElectionBallot` must not store `memberId`.
+- Election results are aggregate-only and computed by service code from encrypted ballots. Admin UI must not expose individual vote choices.
+- Election ballot hashes form a hash chain so tampering can be detected by verification.
+- Election result rows are locked/finalized through `ElectionResult`; vote counts are not manually editable from admin APIs.
+- Events should use invite records, not only arrays.
+- Phase 3 events use normalized `EventInvite` rows for all-family and invited-only events so RSVP counts, future notifications, and attendance can scale cleanly.
+- Gender-based event audiences still create normalized `EventInvite` rows and skip blocked/deleted members.
