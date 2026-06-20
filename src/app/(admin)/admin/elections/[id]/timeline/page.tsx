@@ -1,14 +1,11 @@
 import Link from "next/link";
 
 import { ExtendPhaseForm } from "@/components/admin/elections/election-actions";
+import { LocalDateTimeRange } from "@/components/ui/local-date-time";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ id: string }> };
-
-function toDatetimeLocal(value: Date | null) {
-  return value ? value.toISOString().slice(0, 16) : "";
-}
 
 export default async function ElectionTimelinePage({ params }: Props) {
   const { id } = await params;
@@ -36,15 +33,15 @@ export default async function ElectionTimelinePage({ params }: Props) {
                 <p className="text-sm text-muted-foreground">
                   {phase.type} · extensions {phase.extensionCount} · {phase.isCompleted ? "completed" : "time-based"}
                 </p>
-                <p className="text-sm">{phase.startsAt?.toLocaleString() ?? "-"} to {phase.endsAt?.toLocaleString() ?? "-"}</p>
+                <p className="text-sm"><LocalDateTimeRange start={phase.startsAt} end={phase.endsAt} /></p>
               </div>
             </div>
             {!isCompleted ? (
               <ExtendPhaseForm
                 electionId={id}
                 phaseType={phase.type}
-                defaultStartsAt={toDatetimeLocal(phase.startsAt)}
-                defaultEndsAt={toDatetimeLocal(phase.endsAt)}
+                defaultStartsAt={phase.startsAt?.toISOString() ?? null}
+                defaultEndsAt={phase.endsAt?.toISOString() ?? null}
               />
             ) : (
               <p className="text-sm text-muted-foreground">Election completed. Timeline is locked.</p>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PrintReportButton } from "@/components/admin/elections/print-report-button";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import { prisma } from "@/lib/db/prisma";
 import { verifyBallotChain } from "@/server/services/election-vote.service";
 
@@ -65,7 +66,7 @@ export default async function ElectionReportPage({ params }: Props) {
                 <td className="py-2">{nomination.member.fullName ?? nomination.member.alias ?? "Unnamed Member"}</td>
                 <td className="py-2">{nomination.status}</td>
                 <td className="py-2">{nomination.slogan ?? "-"}</td>
-                <td className="py-2">{nomination.submittedAt.toLocaleString()}</td>
+                <td className="py-2"><LocalDateTime value={nomination.submittedAt} /></td>
               </tr>
             ))}
           </tbody>

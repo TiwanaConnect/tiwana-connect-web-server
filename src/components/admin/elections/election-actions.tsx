@@ -3,6 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+function toDatetimeLocal(value: string | Date | null | undefined) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export function ElectionForm() {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -147,8 +155,8 @@ export function ExtendPhaseForm({
 }: {
   electionId: string;
   phaseType: string;
-  defaultStartsAt: string;
-  defaultEndsAt: string;
+  defaultStartsAt: string | null;
+  defaultEndsAt: string | null;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -177,8 +185,8 @@ export function ExtendPhaseForm({
 
   return (
     <form onSubmit={onSubmit} className="grid gap-2 md:grid-cols-[1fr_1fr_1.5fr_auto]">
-      <input name="newStartsAt" type="datetime-local" defaultValue={defaultStartsAt} className="rounded-md border bg-background px-3 py-2 text-sm" />
-      <input name="newEndsAt" type="datetime-local" defaultValue={defaultEndsAt} className="rounded-md border bg-background px-3 py-2 text-sm" />
+      <input name="newStartsAt" type="datetime-local" defaultValue={toDatetimeLocal(defaultStartsAt)} className="rounded-md border bg-background px-3 py-2 text-sm" />
+      <input name="newEndsAt" type="datetime-local" defaultValue={toDatetimeLocal(defaultEndsAt)} className="rounded-md border bg-background px-3 py-2 text-sm" />
       <input name="reason" required placeholder="Extension reason" className="rounded-md border bg-background px-3 py-2 text-sm" />
       <button className="rounded-md border px-3 py-2 text-sm font-medium">Extend</button>
       {message ? <p className="text-xs text-muted-foreground md:col-span-4">{message}</p> : null}

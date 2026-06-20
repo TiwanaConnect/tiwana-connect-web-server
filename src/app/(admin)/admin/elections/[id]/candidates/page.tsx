@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ElectionActionButton } from "@/components/admin/elections/election-actions";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,10 @@ export default async function ElectionCandidatesPage({ params }: Props) {
             <p className="text-sm text-muted-foreground">{candidate.member.city ?? "-"} · {candidate.member.profession ?? "-"}</p>
             <p className="mt-3 text-sm">{candidate.statement}</p>
             {candidate.slogan ? <p className="mt-2 text-sm font-medium">Slogan: {candidate.slogan}</p> : null}
-            <p className="mt-3 text-xs text-muted-foreground">{candidate.status}{candidate.announcedAt ? ` · announced ${candidate.announcedAt.toLocaleString()}` : ""}</p>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {candidate.status}
+              {candidate.announcedAt ? <> · announced <LocalDateTime value={candidate.announcedAt} /></> : null}
+            </p>
           </div>
         ))}
       </div>

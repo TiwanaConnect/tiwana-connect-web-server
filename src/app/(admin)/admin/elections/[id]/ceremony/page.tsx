@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ElectionActionButton } from "@/components/admin/elections/election-actions";
+import { LocalDateTime } from "@/components/ui/local-date-time";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export default async function ElectionCeremonyPage({ params }: Props) {
       <div className="rounded-lg border bg-card p-8 text-center">
         <p className="text-sm uppercase tracking-wide text-muted-foreground">New President Authorization Ceremony</p>
         <h1 className="mt-2 text-3xl font-semibold">{winner?.member.fullName ?? winner?.member.alias ?? "Winner pending"}</h1>
-        <p className="mt-2 text-muted-foreground">{election?.ceremonyAt?.toLocaleString() ?? "Ceremony not scheduled"}</p>
+        <p className="mt-2 text-muted-foreground"><LocalDateTime value={election?.ceremonyAt} empty="Ceremony not scheduled" /></p>
         {election?.status === "COMPLETED" ? <p className="mt-3 text-sm font-medium">President authorization is completed.</p> : null}
       </div>
       <div className="flex flex-wrap gap-2">
