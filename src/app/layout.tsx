@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { AppProviders } from "@/components/providers/app-providers";
 
+import "family-chart/styles/family-chart.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
