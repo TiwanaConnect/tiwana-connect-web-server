@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
 
 export function EventActions({
   eventId,
@@ -11,6 +12,7 @@ export function EventActions({
   isPinned: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [message, setMessage] = useState<string | null>(null);
 
   async function post(path: string, body?: unknown) {
@@ -20,7 +22,10 @@ export function EventActions({
       body: body ? JSON.stringify(body) : undefined
     });
     const json = await response.json();
-    setMessage(response.ok ? "Updated." : json.error?.message ?? "Request failed.");
+    const message = response.ok ? "Updated." : json.error?.message ?? "Request failed.";
+    setMessage(message);
+    if (response.ok) toast.success(message);
+    else toast.error(message);
     router.refresh();
   }
 

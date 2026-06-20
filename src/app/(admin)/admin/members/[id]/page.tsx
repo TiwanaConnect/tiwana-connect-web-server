@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { MemberActions } from "@/components/admin/members/member-actions";
-import { RelationshipPanel } from "@/components/admin/members/relationship-panel";
 import { prisma } from "@/lib/db/prisma";
 
 export default async function MemberDetailPage({
@@ -23,6 +22,40 @@ export default async function MemberDetailPage({
   if (!member || member.deletedAt) {
     notFound();
   }
+  const father = member.relationshipsTo.find((relationship) => relationship.type === "FATHER")?.fromMember
+    ?? member.relationshipsFrom.find((relationship) => relationship.type === "CHILD" && relationship.toMember.gender === "MALE")?.toMember
+    ?? null;
+  const mother = member.relationshipsTo.find((relationship) => relationship.type === "MOTHER")?.fromMember
+    ?? member.relationshipsFrom.find((relationship) => relationship.type === "CHILD" && relationship.toMember.gender === "FEMALE")?.toMember
+    ?? null;
+  const childMap = new Map<string, { fullName: string | null; alias: string | null; initials: string }>();
+  for (const relationship of member.relationshipsFrom) {
+    if (relationship.type === "FATHER" || relationship.type === "MOTHER") {
+      childMap.set(relationship.toMemberId, relationship.toMember);
+    }
+  }
+  for (const relationship of member.relationshipsTo) {
+    if (relationship.type === "CHILD") {
+      childMap.set(relationship.fromMemberId, relationship.fromMember);
+    }
+  }
+  const spouseMap = new Map<string, { fullName: string | null; alias: string | null; initials: string }>();
+  for (const relationship of member.relationshipsFrom) {
+    if (relationship.type === "SPOUSE") spouseMap.set(relationship.toMemberId, relationship.toMember);
+  }
+  for (const relationship of member.relationshipsTo) {
+    if (relationship.type === "SPOUSE") spouseMap.set(relationship.fromMemberId, relationship.fromMember);
+  }
+  const children = [...childMap.values()];
+  const spouses = [...spouseMap.values()];
+  const relationshipRows = [
+    father ? { label: "Father", values: [father] } : null,
+    mother ? { label: "Mother", values: [mother] } : null,
+    children.length > 0 ? { label: children.length === 1 ? "Child" : "Children", values: children } : null,
+    spouses.length > 0 ? { label: member.gender === "MALE" ? (spouses.length === 1 ? "Wife" : "Wives") : "Husband", values: spouses } : null
+  ].filter((row): row is { label: string; values: Array<{ fullName: string | null; alias: string | null; initials: string }> } => Boolean(row));
+  const displayName = (item: { fullName: string | null; alias: string | null; initials: string }) =>
+    item.fullName ?? item.alias ?? item.initials;
 
   return (
     <div className="space-y-6">
@@ -73,24 +106,23 @@ export default async function MemberDetailPage({
         <div>
           <h2 className="font-semibold">Family Relationships</h2>
           <p className="text-sm text-muted-foreground">
-            Add direct relationships. Full tree traversal comes in Phase 2.
+            Direct family relationships for this member.
           </p>
         </div>
-        <RelationshipPanel memberId={member.id} />
-        <div className="grid gap-3">
-          {[...member.relationshipsFrom, ...member.relationshipsTo].map((relationship) => {
-            const target =
-              "toMember" in relationship
-                ? relationship.toMember
-                : relationship.fromMember;
-
-            return (
-              <div key={relationship.id} className="rounded-md border p-3 text-sm">
-                {relationship.type}: {target.fullName ?? target.alias ?? target.initials}
+        {relationshipRows.length > 0 ? (
+          <dl className="grid gap-3">
+            {relationshipRows.map((row) => (
+              <div key={row.label} className="rounded-md border p-3 text-sm">
+                <dt className="font-medium">{row.label}:</dt>
+                <dd className="mt-1 text-muted-foreground">
+                  {row.values.map(displayName).join(", ")}
+                </dd>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-sm text-muted-foreground">No direct relationships found.</p>
+        )}
       </section>
     </div>
   );

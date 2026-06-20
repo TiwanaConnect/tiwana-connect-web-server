@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
 
 type Props = {
   fundId: string;
@@ -10,6 +11,7 @@ type Props = {
 
 export function FundTransactionForm({ fundId, members }: Props) {
   const router = useRouter();
+  const toast = useToast();
   const [message, setMessage] = useState<string | null>(null);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -35,10 +37,13 @@ export function FundTransactionForm({ fundId, members }: Props) {
     });
     const json = await response.json();
     if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
+      const errorMessage = json.error?.message ?? "Request failed.";
+      setMessage(errorMessage);
+      toast.error(errorMessage);
       return;
     }
     setMessage("Transaction recorded.");
+    toast.success("Transaction recorded.");
     event.currentTarget.reset();
     router.refresh();
   }

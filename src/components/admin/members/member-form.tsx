@@ -1,7 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { apiRequest } from "@/lib/api/client";
+import { useToast } from "@/components/ui/toast";
 
 type MemberFormProps = {
   mode: "create" | "edit";
@@ -24,10 +28,16 @@ type MemberFormProps = {
     dateOfBirth: string | Date | null;
     notes: string | null;
   };
+  currentRelationships?: {
+    fatherMemberId?: string | null;
+    motherMemberId?: string | null;
+    spouseMemberIds?: string[];
+  };
 };
 
 function getFormPayload(form: HTMLFormElement) {
   const data = new FormData(form);
+  const spouseMemberIds = data.getAll("spouseMemberIds").map(String).filter(Boolean);
 
   return {
     fullName: String(data.get("fullName") ?? ""),
@@ -47,7 +57,7 @@ function getFormPayload(form: HTMLFormElement) {
     relationships: {
       fatherMemberId: String(data.get("fatherMemberId") ?? ""),
       motherMemberId: String(data.get("motherMemberId") ?? ""),
-      spouseMemberId: String(data.get("spouseMemberId") ?? "")
+      spouseMemberIds
     }
   };
 }
@@ -55,9 +65,13 @@ function getFormPayload(form: HTMLFormElement) {
 export function MemberForm({
   mode,
   member,
+  currentRelationships,
   relationshipCandidates = []
 }: MemberFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [selectedGender, setSelectedGender] = useState(member?.gender ?? "MALE");
   const [message, setMessage] = useState<string | null>(null);
   const [credential, setCredential] = useState<{
@@ -65,10 +79,41 @@ export function MemberForm({
     temporaryPassword: string;
   } | null>(null);
   const isEdit = mode === "edit" && member;
+  const fatherCandidates = relationshipCandidates.filter((candidate) => candidate.gender === "MALE");
+  const motherCandidates = relationshipCandidates.filter((candidate) => candidate.gender === "FEMALE");
   const spouseCandidates = relationshipCandidates.filter((candidate) => {
     return selectedGender === "MALE"
       ? candidate.gender === "FEMALE"
       : candidate.gender === "MALE";
+  });
+  const spouseLabel = selectedGender === "MALE" ? "Wife member" : "Husband member";
+  const mutation = useMutation({
+    mutationFn: (payload: ReturnType<typeof getFormPayload>) =>
+      apiRequest<{
+        generatedCredential?: { username: string; temporaryPassword: string } | null;
+      } | null>(isEdit ? `/api/admin/members/${member.id}` : "/api/admin/members", {
+        method: isEdit ? "PATCH" : "POST",
+        body: JSON.stringify(isEdit ? { ...payload, createLogin: undefined } : payload)
+      }),
+    onSuccess: (data) => {
+      const successMessage = isEdit ? "Member updated." : "Member created.";
+      setMessage(successMessage);
+      setCredential(data?.generatedCredential ?? null);
+      toast.success(successMessage);
+      queryClient.invalidateQueries({ queryKey: ["admin", "members"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "family-tree"] });
+      router.refresh();
+
+      if (!isEdit) {
+        formRef.current?.reset();
+        setSelectedGender("MALE");
+      }
+    },
+    onError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : "Request failed.";
+      setMessage(errorMessage);
+      toast.error(errorMessage);
+    }
   });
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -77,31 +122,11 @@ export function MemberForm({
     setCredential(null);
 
     const payload = getFormPayload(event.currentTarget);
-    const response = await fetch(
-      isEdit ? `/api/admin/members/${member.id}` : "/api/admin/members",
-      {
-        method: isEdit ? "PATCH" : "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(isEdit ? { ...payload, createLogin: undefined } : payload)
-      }
-    );
-    const json = await response.json();
-
-    if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
-      return;
-    }
-
-    setMessage(isEdit ? "Member updated." : "Member created.");
-    setCredential(json.data?.generatedCredential ?? null);
-
-    if (isEdit) {
-      router.refresh();
-    }
+    mutation.mutate(payload);
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6 rounded-lg border bg-card p-6">
+    <form ref={formRef} onSubmit={onSubmit} className="space-y-6 rounded-lg border bg-card p-6">
       <div className="grid gap-4 md:grid-cols-2">
         <label className="space-y-1 text-sm font-medium">
           Full name
@@ -148,7 +173,16 @@ export function MemberForm({
         </label>
         <label className="space-y-1 text-sm font-medium">
           Date of birth
-          <input name="dateOfBirth" type="date" className="w-full rounded-md border bg-background px-3 py-2" />
+          <input
+            name="dateOfBirth"
+            type="date"
+            defaultValue={
+              member?.dateOfBirth
+                ? new Date(member.dateOfBirth).toISOString().slice(0, 10)
+                : ""
+            }
+            className="w-full rounded-md border bg-background px-3 py-2"
+          />
         </label>
       </div>
       <label className="flex items-start gap-3 rounded-md border bg-muted/30 p-4 text-sm">
@@ -169,69 +203,66 @@ export function MemberForm({
         Notes
         <textarea name="notes" defaultValue={member?.notes ?? ""} rows={4} className="w-full rounded-md border bg-background px-3 py-2" />
       </label>
-      {!isEdit ? (
-        <section className="space-y-4 rounded-md border bg-muted/30 p-4">
-          <div>
-            <h2 className="font-semibold">Family Relationships</h2>
-            <p className="text-sm text-muted-foreground">
-              Optional closest relationships. Leave blank to create a standalone family member.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <label className="space-y-1 text-sm font-medium">
-              Father member
-              <input
-                name="fatherMemberId"
-                list="father-members"
-                placeholder="Search by name, phone, city"
-                className="w-full rounded-md border bg-background px-3 py-2"
-              />
-              <datalist id="father-members">
-                {relationshipCandidates.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.label}
-                  </option>
-                ))}
-              </datalist>
-            </label>
-            <label className="space-y-1 text-sm font-medium">
-              Mother member
-              <input
-                name="motherMemberId"
-                list="mother-members"
-                placeholder="Search by name, phone, city"
-                className="w-full rounded-md border bg-background px-3 py-2"
-              />
-              <datalist id="mother-members">
-                {relationshipCandidates.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.label}
-                  </option>
-                ))}
-              </datalist>
-            </label>
-            <label className="space-y-1 text-sm font-medium">
-              Wife / Spouse member
-              <input
-                name="spouseMemberId"
-                list="spouse-members"
-                placeholder="Opposite gender members only"
-                className="w-full rounded-md border bg-background px-3 py-2"
-              />
-              <datalist id="spouse-members">
-                {spouseCandidates.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.label}
-                  </option>
-                ))}
-              </datalist>
-              <span className="text-xs text-muted-foreground">
-                Spouse options are filtered by selected gender.
-              </span>
-            </label>
-          </div>
-        </section>
-      ) : null}
+      <section className="space-y-4 rounded-md border bg-muted/30 p-4">
+        <div>
+          <h2 className="font-semibold">Family Relationships</h2>
+          <p className="text-sm text-muted-foreground">
+            Set direct parent and spouse relationships for this member.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="space-y-1 text-sm font-medium">
+            Father
+            <select
+              name="fatherMemberId"
+              defaultValue={currentRelationships?.fatherMemberId ?? ""}
+              className="w-full rounded-md border bg-background px-3 py-2"
+            >
+              <option value="">No father selected</option>
+              {fatherCandidates.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1 text-sm font-medium">
+            Mother
+            <select
+              name="motherMemberId"
+              defaultValue={currentRelationships?.motherMemberId ?? ""}
+              className="w-full rounded-md border bg-background px-3 py-2"
+            >
+              <option value="">No mother selected</option>
+              {motherCandidates.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1 text-sm font-medium">
+            {spouseLabel}
+            <select
+              name="spouseMemberIds"
+              multiple
+              defaultValue={currentRelationships?.spouseMemberIds ?? []}
+              className="h-32 w-full rounded-md border bg-background px-3 py-2"
+            >
+              {spouseCandidates.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.label}
+                </option>
+              ))}
+            </select>
+            <span className="text-xs text-muted-foreground">
+              {selectedGender === "MALE"
+                ? "Hold Cmd/Ctrl to select multiple wives."
+                : "Select one husband."}
+            </span>
+          </label>
+        </div>
+      </section>
       {!isEdit ? (
         <div className="rounded-md border bg-muted/40 p-4">
           <label className="flex items-center gap-2 text-sm font-medium">
@@ -254,8 +285,11 @@ export function MemberForm({
           </div>
         </div>
       ) : null}
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-        {isEdit ? "Save changes" : "Create member"}
+      <button
+        disabled={mutation.isPending}
+        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {mutation.isPending ? "Saving..." : isEdit ? "Save changes" : "Create member"}
       </button>
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
       {credential ? (

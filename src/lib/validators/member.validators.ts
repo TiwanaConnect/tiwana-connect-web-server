@@ -7,12 +7,18 @@ const optionalMemberIdSchema = z.preprocess(
   emptyToUndefined,
   z.string().trim().min(1).nullable().optional()
 );
+const optionalMemberIdArraySchema = z.preprocess((value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return [value].filter(Boolean);
+}, z.array(z.string().trim().min(1)).optional().default([]));
 
 const createRelationshipsSchema = z
   .object({
     fatherMemberId: optionalMemberIdSchema,
     motherMemberId: optionalMemberIdSchema,
-    spouseMemberId: optionalMemberIdSchema
+    spouseMemberId: optionalMemberIdSchema,
+    spouseMemberIds: optionalMemberIdArraySchema
   })
   .optional()
   .refine(
@@ -53,7 +59,7 @@ export const createMemberSchema = memberFormBaseSchema.refine((value) => value.f
 });
 
 export const updateMemberSchema = memberFormBaseSchema
-  .omit({ createLogin: true, username: true, role: true, relationships: true })
+  .omit({ createLogin: true, username: true, role: true })
   .partial()
   .extend({
     status: z.nativeEnum(MemberStatus).optional()
@@ -66,7 +72,9 @@ export const memberListQuerySchema = z.object({
   visibility: z.nativeEnum(VisibilityStatus).optional(),
   role: z.nativeEnum(UserRole).optional(),
   hasLogin: z.enum(["true", "false"]).optional(),
-  isFamilyHead: z.enum(["true", "false"]).optional()
+  isFamilyHead: z.enum(["true", "false"]).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20)
 });
 
 export const generateLoginSchema = z.object({

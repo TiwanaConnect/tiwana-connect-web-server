@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
 
 export function FundActions({ fundId }: { fundId: string }) {
   const router = useRouter();
+  const toast = useToast();
   const [message, setMessage] = useState<string | null>(null);
 
   async function run(action: "close" | "cancel" | "archive") {
@@ -12,10 +14,14 @@ export function FundActions({ fundId }: { fundId: string }) {
     const response = await fetch(`/api/admin/funds/${fundId}/${action}`, { method: "POST" });
     const json = await response.json();
     if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
+      const errorMessage = json.error?.message ?? "Request failed.";
+      setMessage(errorMessage);
+      toast.error(errorMessage);
       return;
     }
-    setMessage(`Fund ${action}d.`);
+    const successMessage = `Fund ${action}d.`;
+    setMessage(successMessage);
+    toast.success(successMessage);
     router.refresh();
   }
 

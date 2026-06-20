@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
 
 type EventFormProps = {
   mode: "create" | "edit";
@@ -31,6 +32,7 @@ function toDatetimeLocal(value?: string | Date | null) {
 
 export function EventForm({ mode, event, members }: EventFormProps) {
   const router = useRouter();
+  const toast = useToast();
   const [message, setMessage] = useState<string | null>(null);
   const isEdit = mode === "edit" && event;
 
@@ -67,11 +69,15 @@ export function EventForm({ mode, event, members }: EventFormProps) {
     const json = await response.json();
 
     if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
+      const errorMessage = json.error?.message ?? "Request failed.";
+      setMessage(errorMessage);
+      toast.error(errorMessage);
       return;
     }
 
-    setMessage(isEdit ? "Event updated." : "Event created.");
+    const successMessage = isEdit ? "Event updated." : "Event created.";
+    setMessage(successMessage);
+    toast.success(successMessage);
     router.refresh();
   }
 

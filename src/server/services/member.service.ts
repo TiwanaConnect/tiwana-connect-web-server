@@ -21,6 +21,8 @@ export type MemberListFilters = {
   role?: string;
   hasLogin?: "true" | "false";
   isFamilyHead?: "true" | "false";
+  page?: number;
+  limit?: number;
 };
 
 function initialsFromName(name: string) {
@@ -49,6 +51,16 @@ export function normalizeDate(value?: string) {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
+export async function generateUniqueMemberId(tx: Prisma.TransactionClient = prisma) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const id = String(Math.floor(100000 + Math.random() * 900000));
+    const existing = await tx.member.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) return id;
+  }
+
+  throw new AppError(API_ERROR_CODES.CONFLICT, "Could not generate a unique member ID. Please try again.", 409);
+}
+
 export async function listMembers(filters: MemberListFilters) {
   const where: Prisma.MemberWhereInput = {
     deletedAt: null
@@ -56,6 +68,7 @@ export async function listMembers(filters: MemberListFilters) {
 
   if (filters.search) {
     where.OR = [
+      { id: { contains: filters.search, mode: "insensitive" } },
       { fullName: { contains: filters.search, mode: "insensitive" } },
       { alias: { contains: filters.search, mode: "insensitive" } },
       { phone: { contains: filters.search, mode: "insensitive" } },
@@ -72,13 +85,26 @@ export async function listMembers(filters: MemberListFilters) {
   if (filters.isFamilyHead === "true") where.isFamilyHead = true;
   if (filters.isFamilyHead === "false") where.isFamilyHead = false;
 
-  const members = await prisma.member.findMany({
-    where,
-    include: { userAccount: true },
-    orderBy: { createdAt: "desc" }
-  });
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 20;
+  const [members, totalMembers] = await Promise.all([
+    prisma.member.findMany({
+      where,
+      include: { userAccount: true },
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit
+    }),
+    prisma.member.count({ where })
+  ]);
 
-  return members.map(toAdminMemberDto);
+  return {
+    members: members.map(toAdminMemberDto),
+    totalMembers,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(totalMembers / limit))
+  };
 }
 
 export async function getMember(id: string) {
@@ -113,6 +139,7 @@ export async function createMember(input: {
     fatherMemberId?: string | null;
     motherMemberId?: string | null;
     spouseMemberId?: string | null;
+    spouseMemberIds?: string[];
   };
   actorMemberId?: string;
 }) {
@@ -131,10 +158,15 @@ export async function createMember(input: {
     }
   }
 
+  const spouseMemberIds = [
+    ...(input.relationships?.spouseMemberIds ?? []),
+    input.relationships?.spouseMemberId
+  ].filter(Boolean) as string[];
+  const uniqueSpouseMemberIds = [...new Set(spouseMemberIds)];
   const relationshipIds = [
     input.relationships?.fatherMemberId,
     input.relationships?.motherMemberId,
-    input.relationships?.spouseMemberId
+    ...uniqueSpouseMemberIds
   ].filter(Boolean) as string[];
 
   const relatedMembers = relationshipIds.length
@@ -159,21 +191,26 @@ export async function createMember(input: {
     }
   }
 
-  const spouse = input.relationships?.spouseMemberId
-    ? relatedMemberById.get(input.relationships.spouseMemberId)
-    : null;
+  if (input.gender === "FEMALE" && uniqueSpouseMemberIds.length > 1) {
+    throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "A female member can only have one husband.", 400);
+  }
 
-  if (spouse && spouse.gender === input.gender) {
-    throw new AppError(
-      API_ERROR_CODES.VALIDATION_ERROR,
-      "Spouse must be the opposite gender of the new member.",
-      400
-    );
+  for (const spouseMemberId of uniqueSpouseMemberIds) {
+    const spouse = relatedMemberById.get(spouseMemberId);
+    if (spouse && spouse.gender === input.gender) {
+      throw new AppError(
+        API_ERROR_CODES.VALIDATION_ERROR,
+        "Spouse must be the opposite gender of the member.",
+        400
+      );
+    }
   }
 
   const transactionResult = await prisma.$transaction(async (tx) => {
+    const memberId = await generateUniqueMemberId(tx);
     const created = await tx.member.create({
       data: {
+        id: memberId,
         fullName: input.fullName,
         alias: input.alias,
         initials: initialsFromName(nameForInitials),
@@ -245,15 +282,15 @@ export async function createMember(input: {
       relationshipsCreated.mother = true;
     }
 
-    if (input.relationships?.spouseMemberId) {
+    for (const spouseMemberId of uniqueSpouseMemberIds) {
       relationshipRows.push(
         {
           fromMemberId: created.id,
-          toMemberId: input.relationships.spouseMemberId,
+          toMemberId: spouseMemberId,
           type: FamilyRelationshipType.SPOUSE
         },
         {
-          fromMemberId: input.relationships.spouseMemberId,
+          fromMemberId: spouseMemberId,
           toMemberId: created.id,
           type: FamilyRelationshipType.SPOUSE
         }
@@ -339,6 +376,12 @@ export async function updateMember(id: string, input: {
   branchLabel?: string;
   dateOfBirth?: string;
   notes?: string;
+  relationships?: {
+    fatherMemberId?: string | null;
+    motherMemberId?: string | null;
+    spouseMemberId?: string | null;
+    spouseMemberIds?: string[];
+  };
   actorMemberId?: string;
 }) {
   const existing = await prisma.member.findUnique({ where: { id } });
@@ -347,27 +390,140 @@ export async function updateMember(id: string, input: {
     throw new AppError(API_ERROR_CODES.NOT_FOUND, "Member not found.", 404);
   }
 
-  const member = await prisma.member.update({
-    where: { id },
-    data: {
-      fullName: input.fullName,
-      alias: input.alias,
-      gender: input.gender,
-      visibility: input.visibility,
-      isFamilyHead: input.isFamilyHead,
-      status: input.status as never,
-      city: input.city,
-      phone: input.phone,
-      profession: input.profession,
-      branchLabel: input.branchLabel,
-      dateOfBirth: normalizeDate(input.dateOfBirth),
-      notes: input.notes,
-      initials:
-        input.fullName || input.alias
-          ? initialsFromName(input.fullName ?? input.alias ?? existing.initials)
-          : undefined
-    },
-    include: { userAccount: true }
+  const nextGender = input.gender ?? existing.gender;
+  const spouseMemberIds = [
+    ...(input.relationships?.spouseMemberIds ?? []),
+    input.relationships?.spouseMemberId
+  ].filter(Boolean) as string[];
+  const uniqueSpouseMemberIds = [...new Set(spouseMemberIds)].filter((memberId) => memberId !== id);
+  const directRelationshipIds = [
+    input.relationships?.fatherMemberId,
+    input.relationships?.motherMemberId,
+    ...uniqueSpouseMemberIds
+  ].filter(Boolean) as string[];
+
+  if (input.relationships) {
+    if (input.relationships.fatherMemberId === id || input.relationships.motherMemberId === id) {
+      throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "A member cannot be their own parent.", 400);
+    }
+    if (
+      input.relationships.fatherMemberId &&
+      input.relationships.motherMemberId &&
+      input.relationships.fatherMemberId === input.relationships.motherMemberId
+    ) {
+      throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "Father and mother cannot be the same member.", 400);
+    }
+    if (nextGender === "FEMALE" && uniqueSpouseMemberIds.length > 1) {
+      throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "A female member can only have one husband.", 400);
+    }
+
+    const relatedMembers = directRelationshipIds.length
+      ? await prisma.member.findMany({
+          where: { id: { in: directRelationshipIds }, deletedAt: null },
+          select: { id: true, gender: true }
+        })
+      : [];
+    const relatedMemberById = new Map(relatedMembers.map((member) => [member.id, member]));
+
+    for (const relationshipId of directRelationshipIds) {
+      if (!relatedMemberById.has(relationshipId)) {
+        throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "Selected relationship member does not exist.", 400);
+      }
+    }
+
+    const father = input.relationships.fatherMemberId ? relatedMemberById.get(input.relationships.fatherMemberId) : null;
+    const mother = input.relationships.motherMemberId ? relatedMemberById.get(input.relationships.motherMemberId) : null;
+    if (father && father.gender !== "MALE") {
+      throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "Father must be a male member.", 400);
+    }
+    if (mother && mother.gender !== "FEMALE") {
+      throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "Mother must be a female member.", 400);
+    }
+
+    for (const spouseMemberId of uniqueSpouseMemberIds) {
+      const spouse = relatedMemberById.get(spouseMemberId);
+      if (spouse && spouse.gender === nextGender) {
+        throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "Spouse must be the opposite gender of the member.", 400);
+      }
+    }
+  }
+
+  const member = await prisma.$transaction(async (tx) => {
+    const updated = await tx.member.update({
+      where: { id },
+      data: {
+        fullName: input.fullName,
+        alias: input.alias,
+        gender: input.gender,
+        visibility: input.visibility,
+        isFamilyHead: input.isFamilyHead,
+        status: input.status as never,
+        city: input.city,
+        phone: input.phone,
+        profession: input.profession,
+        branchLabel: input.branchLabel,
+        dateOfBirth: normalizeDate(input.dateOfBirth),
+        notes: input.notes,
+        initials:
+          input.fullName || input.alias
+            ? initialsFromName(input.fullName ?? input.alias ?? existing.initials)
+            : undefined
+      },
+      include: { userAccount: true }
+    });
+
+    if (input.relationships) {
+      const existingDirectRelationships = await tx.familyRelationship.findMany({
+        where: {
+          OR: [
+            { toMemberId: id, type: { in: ["FATHER", "MOTHER"] } },
+            { fromMemberId: id, type: "CHILD" },
+            { fromMemberId: id, type: "SPOUSE" },
+            { toMemberId: id, type: "SPOUSE" }
+          ]
+        },
+        select: { id: true }
+      });
+
+      if (existingDirectRelationships.length > 0) {
+        await tx.familyRelationship.deleteMany({
+          where: { id: { in: existingDirectRelationships.map((relationship) => relationship.id) } }
+        });
+      }
+
+      const relationshipRows: Array<{
+        fromMemberId: string;
+        toMemberId: string;
+        type: FamilyRelationshipType;
+      }> = [];
+
+      if (input.relationships.fatherMemberId) {
+        relationshipRows.push(
+          { fromMemberId: input.relationships.fatherMemberId, toMemberId: id, type: FamilyRelationshipType.FATHER },
+          { fromMemberId: id, toMemberId: input.relationships.fatherMemberId, type: FamilyRelationshipType.CHILD }
+        );
+      }
+
+      if (input.relationships.motherMemberId) {
+        relationshipRows.push(
+          { fromMemberId: input.relationships.motherMemberId, toMemberId: id, type: FamilyRelationshipType.MOTHER },
+          { fromMemberId: id, toMemberId: input.relationships.motherMemberId, type: FamilyRelationshipType.CHILD }
+        );
+      }
+
+      for (const spouseMemberId of uniqueSpouseMemberIds) {
+        relationshipRows.push(
+          { fromMemberId: id, toMemberId: spouseMemberId, type: FamilyRelationshipType.SPOUSE },
+          { fromMemberId: spouseMemberId, toMemberId: id, type: FamilyRelationshipType.SPOUSE }
+        );
+      }
+
+      if (relationshipRows.length > 0) {
+        await tx.familyRelationship.createMany({ data: relationshipRows, skipDuplicates: true });
+      }
+    }
+
+    return updated;
   });
 
   await recordAuditLog({

@@ -334,7 +334,7 @@ model UserAccount {
 }
 
 model Member {
-  id           String           @id @default(cuid())
+  id           String           @id
   fullName     String?
   alias        String?
   initials     String

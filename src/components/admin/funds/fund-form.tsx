@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
 
 type FundFormProps = {
   mode: "create" | "edit";
@@ -30,6 +31,7 @@ function toDatetimeLocal(value?: string | Date | null) {
 
 export function FundForm({ mode, fund }: FundFormProps) {
   const router = useRouter();
+  const toast = useToast();
   const [message, setMessage] = useState<string | null>(null);
   const isEdit = mode === "edit" && fund;
 
@@ -58,10 +60,14 @@ export function FundForm({ mode, fund }: FundFormProps) {
     });
     const json = await response.json();
     if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
+      const errorMessage = json.error?.message ?? "Request failed.";
+      setMessage(errorMessage);
+      toast.error(errorMessage);
       return;
     }
-    setMessage(isEdit ? "Fund updated." : "Fund created.");
+    const successMessage = isEdit ? "Fund updated." : "Fund created.";
+    setMessage(successMessage);
+    toast.success(successMessage);
     router.refresh();
     if (!isEdit && json.data?.id) router.push(`/admin/funds/${json.data.id}`);
   }

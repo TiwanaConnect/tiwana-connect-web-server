@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateTemporaryPassword, hashPassword } from "@/lib/auth/password";
 import { bulkMemberRowSchema } from "@/lib/validators/bulk-import.validators";
 
-import { getDefaultVisibility, normalizeDate } from "./member.service";
+import { generateUniqueMemberId, getDefaultVisibility, normalizeDate } from "./member.service";
 import { parseBoolean, parseCsv } from "./csv.service";
 
 type PreviewRow = {
@@ -85,6 +85,7 @@ export async function importBulkMembers(input: {
     try {
       await prisma.member.create({
         data: {
+          id: await generateUniqueMemberId(),
           fullName: data.fullName,
           alias: data.alias,
           initials: initialsFromName(data.fullName ?? data.alias ?? "Member"),

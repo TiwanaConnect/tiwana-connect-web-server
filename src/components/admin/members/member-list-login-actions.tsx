@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
+import { useToast } from "@/components/ui/toast";
+import { apiRequest } from "@/lib/api/client";
 
 type MemberListLoginActionsProps = {
   memberId: string;
@@ -17,6 +21,8 @@ export function MemberListLoginActions({
   isLoginActive
 }: MemberListLoginActionsProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<{
@@ -24,22 +30,26 @@ export function MemberListLoginActions({
     temporaryPassword: string;
   } | null>(null);
 
+  const mutation = useMutation({
+    mutationFn: ({ path, body }: { path: string; body?: unknown }) =>
+      apiRequest<{ username: string; temporaryPassword: string } | null>(path, {
+        method: "POST",
+        body: body ? JSON.stringify(body) : undefined
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "members"] });
+      router.refresh();
+    },
+    onError: (error) => {
+      const errorMessage = error instanceof Error ? error.message : "Request failed.";
+      setMessage(errorMessage);
+      toast.error(errorMessage);
+    }
+  });
+
   async function post(path: string, body?: unknown) {
     setMessage(null);
-    const response = await fetch(path, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined
-    });
-    const json = await response.json();
-
-    if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
-      return null;
-    }
-
-    router.refresh();
-    return json.data;
+    return mutation.mutateAsync({ path, body });
   }
 
   async function onGenerate(event: React.FormEvent<HTMLFormElement>) {
@@ -60,6 +70,7 @@ export function MemberListLoginActions({
         temporaryPassword: data.temporaryPassword
       });
       setMessage("Login generated. Password is shown only once.");
+      toast.success("Login generated", "Password is shown only once.");
     }
   }
 
@@ -68,15 +79,22 @@ export function MemberListLoginActions({
       <div className="flex flex-wrap gap-2">
         <button
           className="rounded-md border px-2 py-1 text-xs"
-          onClick={() => post(`/api/admin/members/${memberId}/reset-password`)}
+          onClick={async () => {
+            const data = await post(`/api/admin/members/${memberId}/reset-password`);
+            if (data?.temporaryPassword) {
+              toast.success("Password reset", "Temporary password generated.");
+            }
+          }}
         >
           Reset Password
         </button>
         <button
           className="rounded-md border px-2 py-1 text-xs"
-          onClick={() =>
-            post(`/api/admin/members/${memberId}/${isLoginActive ? "disable-login" : "enable-login"}`)
-          }
+          onClick={() => {
+            post(`/api/admin/members/${memberId}/${isLoginActive ? "disable-login" : "enable-login"}`).then(() => {
+              toast.success(isLoginActive ? "Login disabled" : "Login enabled");
+            });
+          }}
         >
           {isLoginActive ? "Disable" : "Enable"}
         </button>

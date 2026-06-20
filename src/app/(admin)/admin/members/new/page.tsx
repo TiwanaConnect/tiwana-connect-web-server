@@ -29,6 +29,7 @@ export default async function NewMemberPage() {
           id: member.id,
           gender: member.gender,
           label: [
+            member.id,
             member.fullName ?? member.alias ?? "Unnamed Member",
             member.phone,
             member.city
