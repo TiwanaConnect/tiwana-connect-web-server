@@ -35,6 +35,34 @@ export type MobileFund = {
   updatedAt: string;
 };
 
+export type MobileFundContributor = {
+  memberId: string;
+  displayName: string;
+  totalAmount: string;
+  contributionCount: number;
+  lastContributionAt: string | null;
+};
+
+export type MobileFundDetail = {
+  fund: MobileFund;
+  summary: {
+    totalCollectedAmount: string;
+    totalSpentAmount: string;
+    balanceAmount: string;
+    targetAmount: string | null;
+    progressPercent: number | null;
+    totalContributors: number;
+    confirmedContributionCount: number;
+    pendingContributionCount: number;
+    requestCount: number;
+    pendingRequestCount: number;
+    myConfirmedContributionAmount: string;
+  };
+  contributors: MobileFundContributor[];
+  recentTransactions: MobileFundTransaction[];
+  myRequest: MobileContributionRequest | null;
+};
+
 export type MobileFundTransaction = {
   id: string;
   fundId: string;

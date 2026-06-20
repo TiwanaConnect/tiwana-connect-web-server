@@ -1,9 +1,19 @@
-import type { FundStatus, FundType, FundVisibility, Prisma, UserRole } from "@prisma/client";
+import { Prisma, type FundStatus, type FundType, type FundVisibility, type UserRole } from "@prisma/client";
 
 import { API_ERROR_CODES, AppError } from "@/lib/api/errors";
 import { prisma } from "@/lib/db/prisma";
-import { toAdminFundDto, toMobileFundDto } from "@/server/dto/fund.dto";
+import {
+  CREDIT_TRANSACTION_TYPES,
+  fundTotals,
+  money,
+  toAdminFundDto,
+  toMobileContributionRequestDto,
+  toMobileFundDto,
+  toMobileFundTransactionDto,
+  transactionDirection
+} from "@/server/dto/fund.dto";
 import { findFundById, findFunds } from "@/server/repositories/fund.repository";
+import { getMemberDisplayNameForViewer } from "@/lib/privacy/member-display";
 
 import { recordAuditLog } from "./audit.service";
 
@@ -155,8 +165,85 @@ export async function getFundDetail(input: {
     };
   }
 
+  const totals = fundTotals(fund.transactions);
+  const confirmedCreditTransactions = fund.transactions.filter(
+    (transaction) =>
+      transaction.status === "CONFIRMED" &&
+      transaction.contributorId &&
+      CREDIT_TRANSACTION_TYPES.includes(transaction.type)
+  );
+  const contributors = Array.from(
+    confirmedCreditTransactions.reduce((map, transaction) => {
+      const contributorId = transaction.contributorId;
+      if (!contributorId || !transaction.contributor) return map;
+
+      const existing = map.get(contributorId);
+      const amount = transaction.amount;
+      map.set(contributorId, {
+        memberId: contributorId,
+        displayName: getMemberDisplayNameForViewer(transaction.contributor, input.viewerRole),
+        totalAmount: existing ? existing.totalAmount.plus(amount) : amount,
+        contributionCount: (existing?.contributionCount ?? 0) + 1,
+        lastContributionAt:
+          existing && existing.lastContributionAt > transaction.createdAt
+            ? existing.lastContributionAt
+            : transaction.createdAt
+      });
+      return map;
+    }, new Map<string, {
+      memberId: string;
+      displayName: string;
+      totalAmount: Prisma.Decimal;
+      contributionCount: number;
+      lastContributionAt: Date;
+    }>())
+  ).map(([, contributor]) => ({
+    memberId: contributor.memberId,
+    displayName: contributor.displayName,
+    totalAmount: money(contributor.totalAmount) ?? "0.00",
+    contributionCount: contributor.contributionCount,
+    lastContributionAt: contributor.lastContributionAt.toISOString()
+  }));
+  const myRequest = fund.requests.find((request) => request.memberId === input.viewerMemberId);
+  const targetAmount = fund.targetAmount ? new Prisma.Decimal(fund.targetAmount) : null;
+  const progressPercent =
+    targetAmount && !targetAmount.isZero()
+      ? Number(Prisma.Decimal.min(new Prisma.Decimal(100), totals.collected.div(targetAmount).mul(100)).toFixed(2))
+      : null;
+
   return {
-    fund: toMobileFundDto(fund, input.viewerRole, input.viewerMemberId)
+    fund: toMobileFundDto(fund, input.viewerRole, input.viewerMemberId),
+    summary: {
+      totalCollectedAmount: money(totals.collected) ?? "0.00",
+      totalSpentAmount: money(totals.spent) ?? "0.00",
+      balanceAmount: money(totals.balance) ?? "0.00",
+      targetAmount: money(fund.targetAmount),
+      progressPercent,
+      totalContributors: contributors.length,
+      confirmedContributionCount: confirmedCreditTransactions.length,
+      pendingContributionCount: fund.transactions.filter(
+        (transaction) => transaction.status === "PENDING" && transactionDirection(transaction.type) === "CREDIT"
+      ).length,
+      requestCount: fund.requests.length,
+      pendingRequestCount: fund.requests.filter((request) => request.status === "PENDING").length,
+      myConfirmedContributionAmount:
+        money(
+          confirmedCreditTransactions.reduce(
+            (total, transaction) =>
+              transaction.contributorId === input.viewerMemberId ? total.plus(transaction.amount) : total,
+            new Prisma.Decimal(0)
+          )
+        ) ?? "0.00"
+    },
+    contributors: contributors.sort((a, b) => Number(b.totalAmount) - Number(a.totalAmount)),
+    recentTransactions: fund.transactions
+      .slice()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 20)
+      .map((transaction) =>
+        toMobileFundTransactionDto({ ...transaction, fund }, input.viewerRole)
+      ),
+    myRequest: myRequest ? toMobileContributionRequestDto({ ...myRequest, fund, transactions: [] }, input.viewerRole) : null
   };
 }
 
