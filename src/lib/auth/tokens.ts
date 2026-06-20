@@ -60,3 +60,19 @@ export async function verifyAccessToken(
 
   return verified.payload;
 }
+
+export async function verifyRefreshToken(
+  token: string,
+  secret = process.env.JWT_REFRESH_SECRET
+) {
+  const verified = await jwtVerify<AuthTokenPayload>(
+    token,
+    getSecret(secret, "JWT_REFRESH_SECRET")
+  );
+
+  if (verified.payload.type !== "refresh") {
+    throw new Error("Invalid token type.");
+  }
+
+  return verified.payload;
+}

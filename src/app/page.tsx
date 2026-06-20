@@ -19,12 +19,6 @@ export default function HomePage() {
           >
             Go to login
           </Link>
-          <Link
-            href="/admin"
-            className="rounded-md border px-4 py-2 text-sm font-medium"
-          >
-            Admin preview
-          </Link>
         </div>
       </section>
     </main>

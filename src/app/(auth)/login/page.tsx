@@ -1,6 +1,20 @@
-import { LoginForm } from "@/components/admin/login-form";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
-export default function LoginPage() {
+import { LoginForm } from "@/components/admin/login-form";
+import { getCurrentSessionFromTokens } from "@/lib/auth/session";
+
+export default async function LoginPage() {
+  const cookieStore = await cookies();
+  const session = await getCurrentSessionFromTokens({
+    accessToken: cookieStore.get("tc_access_token")?.value ?? null,
+    refreshToken: cookieStore.get("tc_refresh_token")?.value ?? null
+  });
+
+  if (session?.role === "SUPER_ADMIN") {
+    redirect("/admin");
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center px-6">
       <section className="w-full max-w-md rounded-lg border bg-card p-8 shadow-sm">
