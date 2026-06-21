@@ -1,12 +1,7 @@
-export type MobileElectionPhaseDto = {
+export type MobileElectionTimelineItemDto = {
   type: string;
   title: string;
-  description: string | null;
-  startsAt: string | null;
-  endsAt: string | null;
-  isActive: boolean;
-  isCompleted: boolean;
-  extensionCount: number;
+  at: string;
 };
 
 export type MobileElectionCandidateDto = {
@@ -43,7 +38,7 @@ export type MobileElectionDto = {
   positionTitle: string;
   status: string;
   currentPhase: string;
-  timeline: MobileElectionPhaseDto[];
+  timeline: MobileElectionTimelineItemDto[];
   nominationStatus: string | null;
   voteStatus: "not_open" | "eligible" | "already_voted" | "closed" | "not_eligible";
   hasVoted: boolean;

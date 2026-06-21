@@ -19,13 +19,8 @@ export async function openNominations(input: { electionId: string; actorMemberId
       data: {
         status: "NOMINATION_OPEN",
         isPublished: true,
-        nominationStartAt: now,
         updatedById: input.actorMemberId
       }
-    });
-    await tx.electionPhase.updateMany({
-      where: { electionId: input.electionId, type: "NOMINATION_OPEN" },
-      data: { startsAt: now, endsAt: election.nominationEndAt }
     });
     await tx.electionAudit.create({
       data: {
@@ -71,17 +66,8 @@ export async function closeNominations(input: { electionId: string; actorMemberI
       where: { id: input.electionId },
       data: {
         status: "NOMINATION_CLOSED",
-        nominationEndAt: now,
         updatedById: input.actorMemberId
       }
-    });
-    await tx.electionPhase.updateMany({
-      where: { electionId: input.electionId, type: "NOMINATION_OPEN" },
-      data: { endsAt: now }
-    });
-    await tx.electionPhase.updateMany({
-      where: { electionId: input.electionId, type: "NOMINATION_CLOSED" },
-      data: { startsAt: now }
     });
     await tx.electionAudit.create({
       data: {

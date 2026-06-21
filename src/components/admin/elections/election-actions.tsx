@@ -127,14 +127,20 @@ export function ElectionActionButton({ href, label, body }: { href: string; labe
   );
 }
 
-export function TimelineCheckpointForm({
+export function ElectionTimelineForm({
   electionId,
-  phaseType,
-  value
+  nominationStartAt,
+  nominationEndAt,
+  votingStartAt,
+  votingEndAt,
+  disabled
 }: {
   electionId: string;
-  phaseType: string;
-  value: string | Date | null;
+  nominationStartAt: string | Date;
+  nominationEndAt: string | Date;
+  votingStartAt: string | Date;
+  votingEndAt: string | Date;
+  disabled?: boolean;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -143,12 +149,14 @@ export function TimelineCheckpointForm({
     event.preventDefault();
     setMessage(null);
     const data = new FormData(event.currentTarget);
-    const response = await fetch(`/api/admin/elections/${electionId}/phases/${phaseType}/extend`, {
-      method: "POST",
+    const response = await fetch(`/api/admin/elections/${electionId}`, {
+      method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        newStartsAt: data.get("checkpointAt") ? new Date(String(data.get("checkpointAt"))).toISOString() : "",
-        reason: "Timeline checkpoint updated by admin."
+        nominationStartAt: new Date(String(data.get("nominationStartAt"))).toISOString(),
+        nominationEndAt: new Date(String(data.get("nominationEndAt"))).toISOString(),
+        votingStartAt: new Date(String(data.get("votingStartAt"))).toISOString(),
+        votingEndAt: new Date(String(data.get("votingEndAt"))).toISOString()
       })
     });
     const json = await response.json();
@@ -156,14 +164,31 @@ export function TimelineCheckpointForm({
       setMessage(json.error?.message ?? "Request failed.");
       return;
     }
-    setMessage("Date saved.");
+    setMessage("Timeline dates saved.");
     router.refresh();
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2">
-      <input name="checkpointAt" required type="datetime-local" defaultValue={toDatetimeLocal(value)} className="min-w-64 rounded-md border bg-background px-3 py-2 text-sm" />
-      <button className="rounded-md border px-3 py-2 text-sm font-medium">Extend</button>
+    <form onSubmit={onSubmit} className="space-y-4 rounded-lg border bg-card p-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="space-y-1 text-sm font-medium">
+          Nominations open
+          <input name="nominationStartAt" required disabled={disabled} type="datetime-local" defaultValue={toDatetimeLocal(nominationStartAt)} className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:bg-muted" />
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          Nominations close
+          <input name="nominationEndAt" required disabled={disabled} type="datetime-local" defaultValue={toDatetimeLocal(nominationEndAt)} className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:bg-muted" />
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          Voting opens
+          <input name="votingStartAt" required disabled={disabled} type="datetime-local" defaultValue={toDatetimeLocal(votingStartAt)} className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:bg-muted" />
+        </label>
+        <label className="space-y-1 text-sm font-medium">
+          Voting closes
+          <input name="votingEndAt" required disabled={disabled} type="datetime-local" defaultValue={toDatetimeLocal(votingEndAt)} className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:bg-muted" />
+        </label>
+      </div>
+      {!disabled ? <button className="rounded-md border px-3 py-2 text-sm font-medium">Save dates</button> : null}
       {message ? <p className="text-xs text-muted-foreground">{message}</p> : null}
     </form>
   );

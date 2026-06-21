@@ -201,18 +201,6 @@ enum ElectionStatus {
   CANCELLED
 }
 
-enum ElectionPhaseType {
-  NOMINATION_OPEN
-  NOMINATION_CLOSED
-  NOMINATION_APPROVAL_COMPLETION
-  CANDIDATES_ANNOUNCED
-  VOTING_OPEN
-  VOTING_CLOSED
-  RESULT_ANNOUNCED
-  PRESIDENT_AUTH_CEREMONY
-  COMPLETED
-}
-
 enum NominationStatus {
   PENDING
   APPROVED
@@ -721,7 +709,6 @@ model Election {
   deletedAt             DateTime?
 
   createdBy   Member               @relation("ElectionCreatedBy", fields: [createdById], references: [id])
-  phases      ElectionPhase[]
   nominations ElectionNomination[]
   candidates  ElectionCandidate[]
   voters      ElectionVoter[]
@@ -736,29 +723,6 @@ model Election {
   @@index([isPublished])
   @@index([isLocked])
   @@index([deletedAt])
-}
-
-model ElectionPhase {
-  id             String            @id @default(cuid())
-  electionId     String
-  type           ElectionPhaseType
-  title          String
-  description    String?
-  startsAt       DateTime?
-  endsAt         DateTime?
-  completedAt    DateTime?
-  isActive       Boolean           @default(false)
-  isCompleted    Boolean           @default(false)
-  extensionCount Int               @default(0)
-  metadata       Json?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-
-  election Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
-
-  @@unique([electionId, type])
-  @@index([electionId])
-  @@index([type])
 }
 
 model ElectionNomination {

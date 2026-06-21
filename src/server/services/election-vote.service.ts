@@ -58,19 +58,10 @@ export async function openVoting(input: { electionId: string; actorMemberId: str
     throw new AppError(API_ERROR_CODES.CONFLICT, "Voting can only be opened after nominations are closed.", 409);
   }
 
-  const now = new Date();
   const election = await prisma.$transaction(async (tx) => {
     const electionRow = await tx.election.update({
       where: { id: input.electionId },
-      data: { status: "VOTING_OPEN", votingStartAt: now, updatedById: input.actorMemberId }
-    });
-    await tx.electionPhase.updateMany({
-      where: { electionId: input.electionId, type: "NOMINATION_CLOSED" },
-      data: { endsAt: now }
-    });
-    await tx.electionPhase.updateMany({
-      where: { electionId: input.electionId, type: "VOTING_OPEN" },
-      data: { startsAt: now }
+      data: { status: "VOTING_OPEN", updatedById: input.actorMemberId }
     });
     return electionRow;
   });
@@ -101,19 +92,10 @@ export async function closeVoting(input: { electionId: string; actorMemberId: st
     throw new AppError(API_ERROR_CODES.CONFLICT, "Voting is not open.", 409);
   }
 
-  const now = new Date();
   const election = await prisma.$transaction(async (tx) => {
     const electionRow = await tx.election.update({
       where: { id: input.electionId },
-      data: { status: "VOTING_CLOSED", votingEndAt: now, updatedById: input.actorMemberId }
-    });
-    await tx.electionPhase.updateMany({
-      where: { electionId: input.electionId, type: "VOTING_OPEN" },
-      data: { endsAt: now }
-    });
-    await tx.electionPhase.updateMany({
-      where: { electionId: input.electionId, type: "VOTING_CLOSED" },
-      data: { startsAt: now }
+      data: { status: "VOTING_CLOSED", updatedById: input.actorMemberId }
     });
     return electionRow;
   });

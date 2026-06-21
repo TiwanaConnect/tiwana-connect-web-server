@@ -9,7 +9,16 @@ type Context = { params: Promise<{ id: string }> };
 export const GET = withApiHandler(async (request, context) => {
   await requireSuperAdminSession(request);
   const { id } = await (context as Context).params;
-  return apiSuccess({ phases: await prisma.electionPhase.findMany({ where: { electionId: id }, orderBy: { createdAt: "asc" } }) });
+  const election = await prisma.election.findUnique({
+    where: { id },
+    select: {
+      nominationStartAt: true,
+      nominationEndAt: true,
+      votingStartAt: true,
+      votingEndAt: true
+    }
+  });
+  return apiSuccess({ timeline: election });
 });
 
 export const PATCH = withApiHandler(async (request, context) => {

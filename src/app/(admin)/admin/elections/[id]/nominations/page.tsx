@@ -16,7 +16,6 @@ export default async function ElectionNominationsPage({ params }: Props) {
   });
   const nominationActionsLocked =
     !election ||
-    new Date() >= election.votingStartAt ||
     [
       "VOTING_OPEN",
       "VOTING_CLOSED",

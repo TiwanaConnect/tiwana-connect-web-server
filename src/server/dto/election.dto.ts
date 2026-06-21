@@ -1,10 +1,9 @@
-import type { Election, ElectionAudit, ElectionBallot, ElectionCandidate, ElectionNomination, ElectionPhase, ElectionResult, ElectionVoter, Member } from "@prisma/client";
+import type { Election, ElectionAudit, ElectionBallot, ElectionCandidate, ElectionNomination, ElectionResult, ElectionVoter, Member } from "@prisma/client";
 
 import { getMemberDisplayNameForViewer } from "@/lib/privacy/member-display";
 import type { MobileElectionCandidateDto, MobileElectionDto, MobileElectionResultDto } from "@/types/election";
 
 export type ElectionWithRelations = Election & {
-  phases: ElectionPhase[];
   nominations: Array<ElectionNomination & { member: Member }>;
   candidates: Array<ElectionCandidate & { member: Member }>;
   voters: Array<ElectionVoter & { member: Member }>;
@@ -88,18 +87,28 @@ export function toMobileElectionDto(election: ElectionWithRelations, viewerMembe
     positionTitle: election.positionTitle,
     status: election.status,
     currentPhase: phase,
-    timeline: election.phases
-      .filter((item) => ["NOMINATION_OPEN", "NOMINATION_CLOSED", "VOTING_OPEN", "VOTING_CLOSED", "RESULT_ANNOUNCED"].includes(item.type))
-      .map((item) => ({
-        type: item.type,
-        title: item.title,
-        description: item.description,
-        startsAt: item.startsAt?.toISOString() ?? null,
-        endsAt: item.endsAt?.toISOString() ?? null,
-        isActive: item.isActive,
-        isCompleted: item.isCompleted,
-        extensionCount: item.extensionCount
-      })),
+    timeline: [
+      {
+        type: "NOMINATION_OPEN",
+        title: "Nominations Open",
+        at: election.nominationStartAt.toISOString()
+      },
+      {
+        type: "NOMINATION_CLOSED",
+        title: "Nominations Close",
+        at: election.nominationEndAt.toISOString()
+      },
+      {
+        type: "VOTING_OPEN",
+        title: "Voting Opens",
+        at: election.votingStartAt.toISOString()
+      },
+      {
+        type: "VOTING_CLOSED",
+        title: "Voting Closes",
+        at: election.votingEndAt.toISOString()
+      }
+    ],
     nominationStatus: nomination?.status ?? null,
     voteStatus: phase !== "VOTING_OPEN" ? (phase === "VOTING_CLOSED" || includeResult ? "closed" : "not_open") : voter?.hasVoted ? "already_voted" : voter?.status === "ELIGIBLE" ? "eligible" : "not_eligible",
     hasVoted: voter?.hasVoted ?? false,
@@ -144,7 +153,6 @@ export function toAdminElectionDto(election: ElectionWithRelations, chainValid?:
     winnerMemberId: election.winnerMemberId,
     ballotChainValid: chainValid,
     result: election.result,
-    phases: election.phases,
     nominations: election.nominations.map((item) => ({ ...item, memberName: item.member.fullName ?? item.member.alias ?? "Unnamed Member" })),
     candidates: election.candidates.map((item) => ({ ...item, memberName: item.member.fullName ?? item.member.alias ?? "Unnamed Member" })),
     audits: election.audits ?? []

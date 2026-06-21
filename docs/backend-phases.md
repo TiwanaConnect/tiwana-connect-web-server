@@ -39,7 +39,7 @@ Phase 5: Directory + tags + contact requests
 
 Phase 6: Elections + nominations + voting
 
-- Election timeline phases cover nominations, candidate announcement, voting, result reveal, president authorization ceremony, and completion.
+- Election timeline dates are stored directly on the election row for display/planning only; election status changes are manual admin actions.
 - Members submit nominations; admins approve/reject and announce candidates.
 - Voting uses AES-256-GCM encrypted anonymous ballots and a separate voter participation table.
 - Ballot hash-chain verification and service-computed tally protect against silent result edits.

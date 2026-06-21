@@ -172,10 +172,10 @@ Admin:
 - `GET/POST /api/admin/elections`
 - `GET/PATCH /api/admin/elections/[id]`
 - `POST /api/admin/elections/[id]/cancel`
-- `GET/PATCH /api/admin/elections/[id]/timeline`
-- `POST /api/admin/elections/[id]/phases/[phaseType]/extend`
-- `POST /api/admin/elections/[id]/phases/[phaseType]/complete`
+- `GET /api/admin/elections/[id]/timeline`
 - `GET /api/admin/elections/[id]/nominations`
+- `POST /api/admin/elections/[id]/open-nominations`
+- `POST /api/admin/elections/[id]/close-nominations`
 - `POST /api/admin/elections/[id]/nominations/[nominationId]/approve`
 - `POST /api/admin/elections/[id]/nominations/[nominationId]/reject`
 - `POST /api/admin/elections/[id]/announce-candidates`

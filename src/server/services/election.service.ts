@@ -27,23 +27,6 @@ function dt(value?: string | null) {
   return value ? new Date(value) : null;
 }
 
-const phaseSpecs = [
-  ["NOMINATION_OPEN", "Nomination Open"],
-  ["NOMINATION_CLOSED", "Nomination Closed"],
-  ["VOTING_OPEN", "Voting Open"],
-  ["VOTING_CLOSED", "Voting Closed"],
-  ["RESULT_ANNOUNCED", "Result Announced"],
-] as const;
-
-function phaseDates(input: ElectionPayload, type: (typeof phaseSpecs)[number][0]) {
-  if (type === "NOMINATION_OPEN") return { startsAt: dt(input.nominationStartAt), endsAt: dt(input.nominationEndAt) };
-  if (type === "NOMINATION_CLOSED") return { startsAt: dt(input.nominationEndAt), endsAt: dt(input.votingStartAt) };
-  if (type === "VOTING_OPEN") return { startsAt: dt(input.votingStartAt), endsAt: dt(input.votingEndAt) };
-  if (type === "VOTING_CLOSED") return { startsAt: dt(input.votingEndAt), endsAt: dt(input.resultAnnouncedAt) };
-  if (type === "RESULT_ANNOUNCED") return { startsAt: dt(input.resultAnnouncedAt), endsAt: dt(input.ceremonyAt) };
-  return { startsAt: null, endsAt: null };
-}
-
 async function eligibleMembers(rules?: Record<string, unknown>) {
   const requireLoginAccount = rules?.requireLoginAccount !== false;
   return prisma.member.findMany({
@@ -109,7 +92,6 @@ export async function createElection(input: ElectionPayload & { actorMemberId: s
         ceremonyAt: dt(input.ceremonyAt),
         eligibilityRules: input.eligibilityRules as Prisma.InputJsonValue,
         createdById: input.actorMemberId,
-        phases: { create: phaseSpecs.map(([type, title]) => ({ type, title, ...phaseDates(input, type) })) },
         result: { create: {} }
       }
     });

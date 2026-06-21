@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db/prisma";
 
 export const electionInclude = {
   createdBy: true,
-  phases: true,
   nominations: { include: { member: true } },
   candidates: { include: { member: true, nomination: true } },
   voters: { include: { member: true } },

@@ -1,6 +1,5 @@
 import {
   CandidateStatus,
-  ElectionPhaseType,
   ElectionResultStatus,
   ElectionStatus,
   FamilyRelationshipType,
@@ -409,20 +408,6 @@ async function upsertElection(input: {
       isPublished: true
     }
   });
-  const phaseRows: Array<[ElectionPhaseType, string, Date | undefined, Date | undefined]> = [
-    [ElectionPhaseType.NOMINATION_OPEN, "Nomination Open", input.nominationStartAt, input.nominationEndAt],
-    [ElectionPhaseType.NOMINATION_CLOSED, "Nomination Closed", input.nominationEndAt, input.votingStartAt],
-    [ElectionPhaseType.VOTING_OPEN, "Voting Open", input.votingStartAt, input.votingEndAt],
-    [ElectionPhaseType.VOTING_CLOSED, "Voting Closed", input.votingEndAt, input.resultAnnouncedAt],
-    [ElectionPhaseType.RESULT_ANNOUNCED, "Result Announced", input.resultAnnouncedAt, input.ceremonyAt]
-  ];
-  for (const [type, title, startsAt, endsAt] of phaseRows) {
-    await prisma.electionPhase.upsert({
-      where: { electionId_type: { electionId: election.id, type } },
-      update: { title, startsAt, endsAt },
-      create: { electionId: election.id, type, title, startsAt, endsAt }
-    });
-  }
   return election;
 }
 
