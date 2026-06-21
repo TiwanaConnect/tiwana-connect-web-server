@@ -30,24 +30,17 @@ function dt(value?: string | null) {
 const phaseSpecs = [
   ["NOMINATION_OPEN", "Nomination Open"],
   ["NOMINATION_CLOSED", "Nomination Closed"],
-  ["NOMINATION_APPROVAL_COMPLETION", "Nomination Approval Completion"],
-  ["CANDIDATES_ANNOUNCED", "Candidates Announced"],
   ["VOTING_OPEN", "Voting Open"],
   ["VOTING_CLOSED", "Voting Closed"],
   ["RESULT_ANNOUNCED", "Result Announced"],
-  ["PRESIDENT_AUTH_CEREMONY", "President Authorization Ceremony"],
-  ["COMPLETED", "Completed"]
 ] as const;
 
 function phaseDates(input: ElectionPayload, type: (typeof phaseSpecs)[number][0]) {
   if (type === "NOMINATION_OPEN") return { startsAt: dt(input.nominationStartAt), endsAt: dt(input.nominationEndAt) };
-  if (type === "NOMINATION_CLOSED") return { startsAt: dt(input.nominationEndAt), endsAt: dt(input.approvalDeadlineAt) };
-  if (type === "NOMINATION_APPROVAL_COMPLETION") return { startsAt: dt(input.approvalDeadlineAt), endsAt: dt(input.candidatesAnnouncedAt) };
-  if (type === "CANDIDATES_ANNOUNCED") return { startsAt: dt(input.candidatesAnnouncedAt), endsAt: dt(input.votingStartAt) };
+  if (type === "NOMINATION_CLOSED") return { startsAt: dt(input.nominationEndAt), endsAt: dt(input.votingStartAt) };
   if (type === "VOTING_OPEN") return { startsAt: dt(input.votingStartAt), endsAt: dt(input.votingEndAt) };
   if (type === "VOTING_CLOSED") return { startsAt: dt(input.votingEndAt), endsAt: dt(input.resultAnnouncedAt) };
   if (type === "RESULT_ANNOUNCED") return { startsAt: dt(input.resultAnnouncedAt), endsAt: dt(input.ceremonyAt) };
-  if (type === "PRESIDENT_AUTH_CEREMONY") return { startsAt: dt(input.ceremonyAt), endsAt: null };
   return { startsAt: null, endsAt: null };
 }
 
@@ -100,7 +93,7 @@ export async function getActiveElection(input: { memberId: string; role: "MEMBER
 
 export async function createElection(input: ElectionPayload & { actorMemberId: string }) {
   const members = await eligibleMembers(input.eligibilityRules);
-  const election = await prisma.$transaction(async (tx) => {
+  const electionId = await prisma.$transaction(async (tx) => {
     const created = await tx.election.create({
       data: {
         title: input.title,
@@ -117,14 +110,20 @@ export async function createElection(input: ElectionPayload & { actorMemberId: s
         eligibilityRules: input.eligibilityRules as Prisma.InputJsonValue,
         createdById: input.actorMemberId,
         phases: { create: phaseSpecs.map(([type, title]) => ({ type, title, ...phaseDates(input, type) })) },
-        voters: { create: members.map((member) => ({ memberId: member.id })) },
         result: { create: {} }
-      },
-      include: electionInclude
+      }
     });
+    if (members.length > 0) {
+      await tx.electionVoter.createMany({
+        data: members.map((member) => ({ electionId: created.id, memberId: member.id })),
+        skipDuplicates: true
+      });
+    }
     await tx.electionAudit.create({ data: { electionId: created.id, actorMemberId: input.actorMemberId, action: "ELECTION_CREATED" } });
-    return created;
-  });
+    return created.id;
+  }, { timeout: 20000 });
+  const election = await findElectionById(electionId);
+  if (!election) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Election not found after creation.", 404);
   const now = new Date();
   if (election.nominationStartAt <= now && election.nominationEndAt > now) {
     await notifyMembers({
@@ -164,6 +163,20 @@ export async function updateElection(electionId: string, input: Partial<Election
     include: electionInclude
   });
   await recordElectionAudit({ electionId, actorMemberId: input.actorMemberId, action: "ELECTION_UPDATED" });
+  return toAdminElectionDto(election);
+}
+
+export async function announceElection(input: { electionId: string; actorMemberId: string }) {
+  const election = await prisma.election.update({
+    where: { id: input.electionId },
+    data: {
+      status: "ANNOUNCED",
+      isPublished: true,
+      updatedById: input.actorMemberId
+    },
+    include: electionInclude
+  });
+  await recordElectionAudit({ electionId: input.electionId, actorMemberId: input.actorMemberId, action: "ELECTION_UPDATED" });
   return toAdminElectionDto(election);
 }
 

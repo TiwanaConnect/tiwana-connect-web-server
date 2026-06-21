@@ -42,7 +42,7 @@ export function FundForm({ mode, fund }: FundFormProps) {
     const payload = {
       title: String(data.get("title") ?? ""),
       description: String(data.get("description") ?? ""),
-      type: String(data.get("type") ?? "FAMILY_GENERAL"),
+      type: "FAMILY_GENERAL",
       status: String(data.get("status") ?? "ACTIVE"),
       visibility: String(data.get("visibility") ?? "ALL_FAMILY"),
       targetAmount: String(data.get("targetAmount") ?? ""),
@@ -80,12 +80,9 @@ export function FundForm({ mode, fund }: FundFormProps) {
           <input name="title" required defaultValue={fund?.title ?? ""} className="w-full rounded-md border bg-background px-3 py-2" />
         </label>
         <label className="space-y-1 text-sm font-medium">
-          Type
-          <select name="type" defaultValue={fund?.type ?? "FAMILY_GENERAL"} className="w-full rounded-md border bg-background px-3 py-2">
-            {["FAMILY_GENERAL", "ZAKAT", "SADAQAH", "EVENT", "PARTY", "EMERGENCY", "MEMBER_HELP", "OTHER"].map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
+          Fund Type
+          <input value="Family fund" disabled className="w-full rounded-md border bg-muted px-3 py-2 text-muted-foreground" />
+          <input type="hidden" name="type" value="FAMILY_GENERAL" />
         </label>
         <label className="space-y-1 text-sm font-medium">
           Status

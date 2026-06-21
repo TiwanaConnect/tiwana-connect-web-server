@@ -56,12 +56,16 @@ export const createAdminFundSchema = withDateRules(
   fundBaseObject.extend({
     status: z.nativeEnum(FundStatus).optional().default(FundStatus.ACTIVE),
     isOfficial: z.boolean().optional().default(true)
+  }).refine((value) => value.type === FundType.FAMILY_GENERAL, {
+    message: "Admin can only create family funds.",
+    path: ["type"]
   })
 );
 
 export const createMobileFundSchema = withDateRules(
   fundBaseObject
     .extend({
+      type: z.literal(FundType.GENERAL).default(FundType.GENERAL),
       visibility: z.enum(["ALL_FAMILY", "INVITED_ONLY"]).default("ALL_FAMILY")
     })
     .transform((value) => ({ ...value, visibility: value.visibility as FundVisibility, isOfficial: false, isPinned: false }))

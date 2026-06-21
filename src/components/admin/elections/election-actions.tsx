@@ -25,12 +25,8 @@ export function ElectionForm() {
       positionTitle: String(data.get("positionTitle") ?? "President"),
       nominationStartAt: new Date(String(data.get("nominationStartAt"))).toISOString(),
       nominationEndAt: new Date(String(data.get("nominationEndAt"))).toISOString(),
-      approvalDeadlineAt: data.get("approvalDeadlineAt") ? new Date(String(data.get("approvalDeadlineAt"))).toISOString() : "",
-      candidatesAnnouncedAt: data.get("candidatesAnnouncedAt") ? new Date(String(data.get("candidatesAnnouncedAt"))).toISOString() : "",
       votingStartAt: new Date(String(data.get("votingStartAt"))).toISOString(),
-      votingEndAt: new Date(String(data.get("votingEndAt"))).toISOString(),
-      resultAnnouncedAt: data.get("resultAnnouncedAt") ? new Date(String(data.get("resultAnnouncedAt"))).toISOString() : "",
-      ceremonyAt: data.get("ceremonyAt") ? new Date(String(data.get("ceremonyAt"))).toISOString() : ""
+      votingEndAt: new Date(String(data.get("votingEndAt"))).toISOString()
     };
     const response = await fetch("/api/admin/elections", {
       method: "POST",
@@ -81,14 +77,6 @@ export function ElectionForm() {
             Nominations close
             <input name="nominationEndAt" required type="datetime-local" className="w-full rounded-md border bg-background px-3 py-2" />
           </label>
-          <label className="space-y-1 text-sm font-medium">
-            Approval deadline
-            <input name="approvalDeadlineAt" type="datetime-local" className="w-full rounded-md border bg-background px-3 py-2" />
-          </label>
-          <label className="space-y-1 text-sm font-medium">
-            Candidate announcement time
-            <input name="candidatesAnnouncedAt" type="datetime-local" className="w-full rounded-md border bg-background px-3 py-2" />
-          </label>
         </div>
       </section>
       <section className="space-y-4">
@@ -104,14 +92,6 @@ export function ElectionForm() {
           <label className="space-y-1 text-sm font-medium">
             Voting closes
             <input name="votingEndAt" required type="datetime-local" className="w-full rounded-md border bg-background px-3 py-2" />
-          </label>
-          <label className="space-y-1 text-sm font-medium">
-            Result announcement
-            <input name="resultAnnouncedAt" type="datetime-local" className="w-full rounded-md border bg-background px-3 py-2" />
-          </label>
-          <label className="space-y-1 text-sm font-medium">
-            President authorization ceremony
-            <input name="ceremonyAt" type="datetime-local" className="w-full rounded-md border bg-background px-3 py-2" />
           </label>
         </div>
       </section>
@@ -147,16 +127,14 @@ export function ElectionActionButton({ href, label, body }: { href: string; labe
   );
 }
 
-export function ExtendPhaseForm({
+export function TimelineCheckpointForm({
   electionId,
   phaseType,
-  defaultStartsAt,
-  defaultEndsAt
+  value
 }: {
   electionId: string;
   phaseType: string;
-  defaultStartsAt: string | null;
-  defaultEndsAt: string | null;
+  value: string | Date | null;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
@@ -169,9 +147,8 @@ export function ExtendPhaseForm({
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        newStartsAt: data.get("newStartsAt") ? new Date(String(data.get("newStartsAt"))).toISOString() : "",
-        newEndsAt: data.get("newEndsAt") ? new Date(String(data.get("newEndsAt"))).toISOString() : "",
-        reason: String(data.get("reason") ?? "")
+        newStartsAt: data.get("checkpointAt") ? new Date(String(data.get("checkpointAt"))).toISOString() : "",
+        reason: "Timeline checkpoint updated by admin."
       })
     });
     const json = await response.json();
@@ -179,17 +156,15 @@ export function ExtendPhaseForm({
       setMessage(json.error?.message ?? "Request failed.");
       return;
     }
-    setMessage("Phase extended.");
+    setMessage("Date saved.");
     router.refresh();
   }
 
   return (
-    <form onSubmit={onSubmit} className="grid gap-2 md:grid-cols-[1fr_1fr_1.5fr_auto]">
-      <input name="newStartsAt" type="datetime-local" defaultValue={toDatetimeLocal(defaultStartsAt)} className="rounded-md border bg-background px-3 py-2 text-sm" />
-      <input name="newEndsAt" type="datetime-local" defaultValue={toDatetimeLocal(defaultEndsAt)} className="rounded-md border bg-background px-3 py-2 text-sm" />
-      <input name="reason" required placeholder="Extension reason" className="rounded-md border bg-background px-3 py-2 text-sm" />
+    <form onSubmit={onSubmit} className="flex flex-wrap items-center gap-2">
+      <input name="checkpointAt" required type="datetime-local" defaultValue={toDatetimeLocal(value)} className="min-w-64 rounded-md border bg-background px-3 py-2 text-sm" />
       <button className="rounded-md border px-3 py-2 text-sm font-medium">Extend</button>
-      {message ? <p className="text-xs text-muted-foreground md:col-span-4">{message}</p> : null}
+      {message ? <p className="text-xs text-muted-foreground">{message}</p> : null}
     </form>
   );
 }

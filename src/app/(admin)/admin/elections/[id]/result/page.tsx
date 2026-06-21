@@ -11,8 +11,8 @@ export default async function ElectionResultPage({ params }: Props) {
   const election = await prisma.election.findUnique({ where: { id }, include: { result: true } });
   const result = election?.result ?? null;
   const rows = Array.isArray(result?.resultsJson) ? result.resultsJson as Array<{ candidateId: string; voteCount: number; percentage: number }> : [];
-  const resultActionsLocked = !election || ["RESULT_ANNOUNCED", "PRESIDENT_AUTH_CEREMONY", "COMPLETED", "CANCELLED"].includes(election.status);
-  const canTally = election && !resultActionsLocked && ["VOTING_CLOSED", "TALLYING"].includes(election.status) && result?.status !== "FINALIZED" && result?.status !== "PUBLISHED";
+  const resultActionsLocked = !election || ["RESULT_ANNOUNCED", "COMPLETED", "CANCELLED"].includes(election.status);
+  const canTally = election && !resultActionsLocked && election.status === "VOTING_CLOSED" && result?.status !== "FINALIZED" && result?.status !== "PUBLISHED";
   const canPublish = !resultActionsLocked && result?.status === "FINALIZED";
 
   return (

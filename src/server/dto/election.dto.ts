@@ -20,14 +20,7 @@ type ResultRow = {
   percentage: number;
 };
 
-export function currentPhase(election: Pick<Election, "status" | "nominationStartAt" | "nominationEndAt" | "votingStartAt" | "votingEndAt" | "resultAnnouncedAt" | "ceremonyAt">, now = new Date()) {
-  if (election.status === "COMPLETED" || election.status === "CANCELLED") return election.status;
-  if (election.ceremonyAt && now >= election.ceremonyAt) return "PRESIDENT_AUTH_CEREMONY";
-  if (election.resultAnnouncedAt && now >= election.resultAnnouncedAt) return "RESULT_ANNOUNCED";
-  if (now >= election.votingEndAt) return "VOTING_CLOSED";
-  if (now >= election.votingStartAt) return "VOTING_OPEN";
-  if (now >= election.nominationEndAt) return "NOMINATION_CLOSED";
-  if (now >= election.nominationStartAt) return "NOMINATION_OPEN";
+export function currentPhase(election: Pick<Election, "status">) {
   return election.status;
 }
 
@@ -95,16 +88,18 @@ export function toMobileElectionDto(election: ElectionWithRelations, viewerMembe
     positionTitle: election.positionTitle,
     status: election.status,
     currentPhase: phase,
-    timeline: election.phases.map((item) => ({
-      type: item.type,
-      title: item.title,
-      description: item.description,
-      startsAt: item.startsAt?.toISOString() ?? null,
-      endsAt: item.endsAt?.toISOString() ?? null,
-      isActive: item.isActive,
-      isCompleted: item.isCompleted,
-      extensionCount: item.extensionCount
-    })),
+    timeline: election.phases
+      .filter((item) => ["NOMINATION_OPEN", "NOMINATION_CLOSED", "VOTING_OPEN", "VOTING_CLOSED", "RESULT_ANNOUNCED"].includes(item.type))
+      .map((item) => ({
+        type: item.type,
+        title: item.title,
+        description: item.description,
+        startsAt: item.startsAt?.toISOString() ?? null,
+        endsAt: item.endsAt?.toISOString() ?? null,
+        isActive: item.isActive,
+        isCompleted: item.isCompleted,
+        extensionCount: item.extensionCount
+      })),
     nominationStatus: nomination?.status ?? null,
     voteStatus: phase !== "VOTING_OPEN" ? (phase === "VOTING_CLOSED" || includeResult ? "closed" : "not_open") : voter?.hasVoted ? "already_voted" : voter?.status === "ELIGIBLE" ? "eligible" : "not_eligible",
     hasVoted: voter?.hasVoted ?? false,

@@ -20,17 +20,28 @@ export default async function ElectionNominationsPage({ params }: Props) {
     [
       "VOTING_OPEN",
       "VOTING_CLOSED",
-      "TALLYING",
       "RESULT_ANNOUNCED",
-      "PRESIDENT_AUTH_CEREMONY",
       "COMPLETED",
       "CANCELLED"
     ].includes(election.status);
+  const canOpenNominations =
+    election &&
+    ["DRAFT", "ANNOUNCED", "NOMINATION_CLOSED"].includes(election.status);
+  const canCloseNominations = election?.status === "NOMINATION_OPEN";
 
   return (
     <div className="space-y-6">
       <Link href={`/admin/elections/${id}`} className="text-sm text-primary">Back to election</Link>
-      <h1 className="text-2xl font-semibold">Nominations</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Nominations</h1>
+          <p className="text-sm text-muted-foreground">Current status: {election?.status ?? "unknown"}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canOpenNominations ? <ElectionActionButton href={`/api/admin/elections/${id}/open-nominations`} label="Open nominations" /> : null}
+          {canCloseNominations ? <ElectionActionButton href={`/api/admin/elections/${id}/close-nominations`} label="Close nominations" /> : null}
+        </div>
+      </div>
       <div className="overflow-hidden rounded-lg border bg-card">
         <table className="w-full text-left text-sm">
           <thead className="bg-muted text-xs uppercase text-muted-foreground">

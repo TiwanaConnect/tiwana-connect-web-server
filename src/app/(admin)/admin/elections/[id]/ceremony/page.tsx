@@ -13,7 +13,7 @@ export default async function ElectionCeremonyPage({ params }: Props) {
   const winner = election?.candidates.find((candidate) => candidate.id === election.winnerCandidateId);
   const canSchedule = election?.status === "RESULT_ANNOUNCED" && !election.ceremonyAt;
   const canAssignPresident = election?.resultStatus === "PUBLISHED" && election.status !== "COMPLETED";
-  const canComplete = election?.status === "PRESIDENT_AUTH_CEREMONY";
+  const canComplete = election?.resultStatus === "PUBLISHED" && election.status !== "COMPLETED";
 
   return (
     <div className="space-y-6">

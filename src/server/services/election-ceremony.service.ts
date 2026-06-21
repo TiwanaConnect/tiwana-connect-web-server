@@ -5,7 +5,7 @@ import { recordElectionAudit } from "./election-audit.service";
 import { notifyMembers } from "./notification.service";
 
 export async function scheduleCeremony(input: { electionId: string; actorMemberId: string; ceremonyAt: string }) {
-  const election = await prisma.election.update({ where: { id: input.electionId }, data: { ceremonyAt: new Date(input.ceremonyAt), status: "PRESIDENT_AUTH_CEREMONY" } });
+  const election = await prisma.election.update({ where: { id: input.electionId }, data: { ceremonyAt: new Date(input.ceremonyAt), status: "RESULT_ANNOUNCED" } });
   await recordElectionAudit({ electionId: input.electionId, actorMemberId: input.actorMemberId, action: "CEREMONY_SCHEDULED" });
   const voters = await prisma.electionVoter.findMany({
     where: { electionId: input.electionId, status: { in: ["ELIGIBLE", "VOTED"] } },
@@ -33,7 +33,7 @@ export async function assignPresident(input: { electionId: string; actorMemberId
   await prisma.$transaction(async (tx) => {
     await tx.userAccount.updateMany({ where: { role: "PRESIDENT" }, data: { role: "MEMBER" } });
     await tx.userAccount.updateMany({ where: { memberId: election.winnerMemberId ?? undefined }, data: { role: "PRESIDENT" } });
-    await tx.election.update({ where: { id: input.electionId }, data: { status: "PRESIDENT_AUTH_CEREMONY" } });
+    await tx.election.update({ where: { id: input.electionId }, data: { status: "RESULT_ANNOUNCED" } });
   });
   await recordElectionAudit({ electionId: input.electionId, actorMemberId: input.actorMemberId, action: "PRESIDENT_ASSIGNED", entityId: election.winnerMemberId });
   return { ok: true };

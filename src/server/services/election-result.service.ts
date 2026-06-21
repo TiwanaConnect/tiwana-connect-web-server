@@ -66,7 +66,7 @@ export async function startTally(input: { electionId: string; actorMemberId: str
       finalizedBySystem: true
     }
   });
-  await prisma.election.update({ where: { id: input.electionId }, data: { status: "TALLYING", resultStatus: "FINALIZED", winnerCandidateId: winner?.candidateId, winnerMemberId: winner?.memberId, isLocked: true, lockedAt: new Date() } });
+  await prisma.election.update({ where: { id: input.electionId }, data: { status: "VOTING_CLOSED", resultStatus: "FINALIZED", winnerCandidateId: winner?.candidateId, winnerMemberId: winner?.memberId, isLocked: true, lockedAt: new Date() } });
   await recordElectionAudit({ electionId: input.electionId, action: "RESULT_FINALIZED", entityId: result.id, metadata: { resultHash } });
   return { result, ballotChain: chain };
 }

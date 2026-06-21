@@ -158,12 +158,13 @@ export type MobileFamilyEvent = {
 
 export type FundType =
   | "FAMILY_GENERAL"
-  | "EVENT_FUND"
-  | "EMERGENCY_HELP"
+  | "GENERAL"
   | "ZAKAT"
   | "SADAQAH"
-  | "EDUCATION"
-  | "MEDICAL"
+  | "EVENT"
+  | "PARTY"
+  | "EMERGENCY"
+  | "MEMBER_HELP"
   | "OTHER";
 export type FundStatus = "DRAFT" | "ACTIVE" | "CLOSED" | "CANCELLED" | "ARCHIVED";
 export type FundVisibility = "ALL_FAMILY" | "INVITED_ONLY" | "ADMIN_ONLY";
@@ -203,6 +204,28 @@ export type MobileFund = {
   myPaidAmount?: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type MobileFundSummary = {
+  totalCollectedAmount: string;
+  totalSpentAmount: string;
+  balanceAmount: string;
+  targetAmount: string | null;
+  progressPercent: number | null;
+  totalContributors: number;
+  confirmedContributionCount: number;
+  pendingContributionCount: number;
+  requestCount: number;
+  pendingRequestCount: number;
+  myConfirmedContributionAmount: string;
+};
+
+export type MobileFundContributor = {
+  memberId: string;
+  displayName: string;
+  totalAmount: string;
+  contributionCount: number;
+  lastContributionAt: string;
 };
 
 export type MobileFundTransaction = {

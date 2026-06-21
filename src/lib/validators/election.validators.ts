@@ -1,4 +1,4 @@
-import { ElectionPhaseType } from "@prisma/client";
+import type { ElectionPhaseType } from "@prisma/client";
 import { z } from "zod";
 
 const emptyToUndefined = (value: unknown) => (value === "" ? undefined : value);
@@ -60,4 +60,8 @@ export const extendPhaseSchema = z.object({
   newEndsAt: z.preprocess(emptyToUndefined, z.string().nullable().optional()),
   reason: z.string().trim().min(1)
 });
-export const phaseParamsSchema = z.object({ phaseType: z.nativeEnum(ElectionPhaseType) });
+export const phaseParamsSchema = z.object({
+  phaseType: z
+    .enum(["NOMINATION_OPEN", "NOMINATION_CLOSED", "VOTING_OPEN", "VOTING_CLOSED", "RESULT_ANNOUNCED"])
+    .transform((value) => value as ElectionPhaseType)
+});

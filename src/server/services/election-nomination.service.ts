@@ -5,6 +5,98 @@ import { currentPhase } from "@/server/dto/election.dto";
 import { recordElectionAudit } from "./election-audit.service";
 import { notifyMembers } from "./notification.service";
 
+export async function openNominations(input: { electionId: string; actorMemberId: string }) {
+  const election = await prisma.election.findUnique({ where: { id: input.electionId } });
+  if (!election || election.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Election not found.", 404);
+  if (["VOTING_OPEN", "VOTING_CLOSED", "RESULT_ANNOUNCED", "COMPLETED", "CANCELLED"].includes(election.status)) {
+    throw new AppError(API_ERROR_CODES.CONFLICT, "Nominations cannot be opened after voting has started.", 409);
+  }
+
+  const now = new Date();
+  const updated = await prisma.$transaction(async (tx) => {
+    const electionRow = await tx.election.update({
+      where: { id: input.electionId },
+      data: {
+        status: "NOMINATION_OPEN",
+        isPublished: true,
+        nominationStartAt: now,
+        updatedById: input.actorMemberId
+      }
+    });
+    await tx.electionPhase.updateMany({
+      where: { electionId: input.electionId, type: "NOMINATION_OPEN" },
+      data: { startsAt: now, endsAt: election.nominationEndAt }
+    });
+    await tx.electionAudit.create({
+      data: {
+        electionId: input.electionId,
+        actorMemberId: input.actorMemberId,
+        action: "ELECTION_UPDATED",
+        metadata: { action: "NOMINATIONS_OPENED", nominationStartAt: now.toISOString() }
+      }
+    });
+    return electionRow;
+  });
+
+  const voters = await prisma.electionVoter.findMany({
+    where: { electionId: input.electionId, status: { in: ["ELIGIBLE", "VOTED"] } },
+    select: { memberId: true }
+  });
+  await notifyMembers({
+    memberIds: voters.map((voter) => voter.memberId),
+    type: "ELECTION_NOMINATION",
+    title: `Nominations are open: ${updated.title}`,
+    body: "Eligible members can now submit a nomination.",
+    entityType: "ELECTION",
+    entityId: updated.id,
+    actionLabel: "Submit nomination",
+    actionUrl: `/elections/${updated.id}/nomination`,
+    priority: "HIGH",
+    push: true
+  });
+
+  return { election: updated };
+}
+
+export async function closeNominations(input: { electionId: string; actorMemberId: string }) {
+  const election = await prisma.election.findUnique({ where: { id: input.electionId } });
+  if (!election || election.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Election not found.", 404);
+  if (election.status !== "NOMINATION_OPEN") {
+    throw new AppError(API_ERROR_CODES.CONFLICT, "Nominations are not open.", 409);
+  }
+
+  const now = new Date();
+  const updated = await prisma.$transaction(async (tx) => {
+    const electionRow = await tx.election.update({
+      where: { id: input.electionId },
+      data: {
+        status: "NOMINATION_CLOSED",
+        nominationEndAt: now,
+        updatedById: input.actorMemberId
+      }
+    });
+    await tx.electionPhase.updateMany({
+      where: { electionId: input.electionId, type: "NOMINATION_OPEN" },
+      data: { endsAt: now }
+    });
+    await tx.electionPhase.updateMany({
+      where: { electionId: input.electionId, type: "NOMINATION_CLOSED" },
+      data: { startsAt: now }
+    });
+    await tx.electionAudit.create({
+      data: {
+        electionId: input.electionId,
+        actorMemberId: input.actorMemberId,
+        action: "ELECTION_UPDATED",
+        metadata: { action: "NOMINATIONS_CLOSED", nominationEndAt: now.toISOString() }
+      }
+    });
+    return electionRow;
+  });
+
+  return { election: updated };
+}
+
 export async function submitNomination(input: {
   electionId: string;
   memberId: string;
@@ -26,7 +118,9 @@ export async function submitNomination(input: {
 
 export async function withdrawNomination(input: { electionId: string; memberId: string }) {
   const election = await prisma.election.findUnique({ where: { id: input.electionId } });
-  if (!election || currentPhase(election) === "CANDIDATES_ANNOUNCED") throw new AppError(API_ERROR_CODES.FORBIDDEN, "This nomination can no longer be withdrawn.", 403);
+  if (!election || ["VOTING_OPEN", "VOTING_CLOSED", "RESULT_ANNOUNCED", "COMPLETED"].includes(currentPhase(election))) {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "This nomination can no longer be withdrawn.", 403);
+  }
   const nomination = await prisma.electionNomination.update({
     where: { electionId_memberId: { electionId: input.electionId, memberId: input.memberId } },
     data: { status: "WITHDRAWN" },

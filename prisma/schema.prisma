@@ -96,6 +96,7 @@ enum EventInviteSource {
 
 enum FundType {
   FAMILY_GENERAL
+  GENERAL
   ZAKAT
   SADAQAH
   EVENT

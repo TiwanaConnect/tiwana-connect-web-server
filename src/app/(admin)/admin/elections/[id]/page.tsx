@@ -15,6 +15,7 @@ export default async function ElectionDashboardPage({ params }: Props) {
   const eligible = election.voters.filter((voter) => voter.status === "ELIGIBLE" || voter.status === "VOTED").length;
   const voted = election.voters.filter((voter) => voter.hasVoted).length;
   const canCancel = !["COMPLETED", "CANCELLED"].includes(election.status);
+  const canAnnounce = election.status === "DRAFT" || !election.isPublished;
   return (
     <div className="space-y-6">
       <div><Link href="/admin/elections" className="text-sm text-primary">Back to elections</Link><h1 className="mt-2 text-2xl font-semibold tracking-tight">{election.title}</h1><p className="text-sm text-muted-foreground">{election.positionTitle} · {election.status} · {election.resultStatus}</p></div>
@@ -24,6 +25,7 @@ export default async function ElectionDashboardPage({ params }: Props) {
       <div className="rounded-lg border bg-card p-4"><div className="font-semibold">Ballot Chain</div><p className="text-sm text-muted-foreground">{chain.valid ? "Valid" : `Broken at index ${chain.brokenAtIndex}`}</p></div>
       <div className="flex flex-wrap gap-2">
         {["timeline", "nominations", "candidates", "voting", "result", "ceremony", "report"].map((item) => <Link key={item} href={`/admin/elections/${id}/${item}`} className="rounded-md border px-3 py-2 text-sm font-medium capitalize">{item}</Link>)}
+        {canAnnounce ? <ElectionActionButton href={`/api/admin/elections/${id}/announce`} label="Announce election" /> : null}
         {canCancel ? <ElectionActionButton href={`/api/admin/elections/${id}/cancel`} label="Cancel election" /> : null}
       </div>
     </div>

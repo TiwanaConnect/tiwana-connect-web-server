@@ -469,6 +469,8 @@ Auth: Yes
 
 Request body: `title`, `description`, `type`, `visibility`, `targetAmount`, `currency`, `startAt`, `endAt`, `relatedEventId`.
 
+Mobile-created funds must use `type: "GENERAL"`. `FAMILY_GENERAL` funds are admin-only and are not returned by mobile fund listing/detail APIs.
+
 Success response: `MobileFund`.
 
 Example curl:
@@ -477,7 +479,7 @@ Example curl:
 curl -X POST "$API_BASE/funds" \
   -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Family Support","type":"FAMILY_GENERAL","visibility":"ALL_FAMILY","currency":"PKR"}'
+  -d '{"title":"Family Support","type":"GENERAL","visibility":"ALL_FAMILY","currency":"PKR"}'
 ```
 
 ## GET /funds/[id]
@@ -486,7 +488,7 @@ Status: READY
 
 Auth: Yes
 
-Success response: `{ fund: MobileFund, transactions: MobileFundTransaction[], requests: MobileContributionRequest[] }`
+Success response: `{ fund: MobileFund, summary: MobileFundSummary, contributors: MobileFundContributor[], recentTransactions: MobileFundTransaction[], myRequest: MobileContributionRequest | null }`
 
 Example curl:
 
@@ -562,6 +564,44 @@ Example curl:
 
 ```bash
 curl "$API_BASE/funds/my-contributions" -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+## POST /funds/transactions/[transactionId]/confirm
+
+Status: READY
+
+Auth: Yes
+
+Only the creator of a `GENERAL` fund can confirm a pending transaction for that fund.
+
+Success response: `MobileFundTransaction`.
+
+Example curl:
+
+```bash
+curl -X POST "$API_BASE/funds/transactions/<TRANSACTION_ID>/confirm" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+## POST /funds/transactions/[transactionId]/reject
+
+Status: READY
+
+Auth: Yes
+
+Only the creator of a `GENERAL` fund can reject a pending transaction for that fund.
+
+Request body: `reason`
+
+Success response: `MobileFundTransaction`.
+
+Example curl:
+
+```bash
+curl -X POST "$API_BASE/funds/transactions/<TRANSACTION_ID>/reject" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"reason":"Reference was not valid"}'
 ```
 
 ## GET /directory

@@ -65,6 +65,7 @@ export async function listAdminFunds(filters: {
   const funds = await findFunds({
     where: {
       deletedAt: null,
+      type: "FAMILY_GENERAL",
       ...(filters.q
         ? {
             OR: [
@@ -74,7 +75,6 @@ export async function listAdminFunds(filters: {
           }
         : {}),
       ...(filters.status ? { status: filters.status } : {}),
-      ...(filters.type ? { type: filters.type } : {}),
       ...(filters.visibility ? { visibility: filters.visibility } : {})
     },
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
@@ -100,6 +100,7 @@ export async function listMobileFunds(input: {
   const funds = await findFunds({
     where: {
       ...mobileVisibilityWhere(input.memberId),
+      type: "GENERAL",
       ...(input.q
         ? {
             OR: [
@@ -109,7 +110,6 @@ export async function listMobileFunds(input: {
           }
         : {}),
       ...(input.status ? { status: input.status } : {}),
-      ...(input.type ? { type: input.type } : {})
     },
     orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
     ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
@@ -130,6 +130,12 @@ export async function getFundDetail(input: {
 }) {
   const fund = await findFundById(input.fundId);
   if (!fund || fund.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Fund not found.", 404);
+  if (input.admin && fund.type !== "FAMILY_GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Admin can only access family funds.", 403);
+  }
+  if (!input.admin && fund.type !== "GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Mobile can only access general funds.", 403);
+  }
 
   const isParticipant =
     fund.createdById === input.viewerMemberId ||
@@ -252,12 +258,18 @@ export async function createFund(input: FundPayload & { title: string }) {
   if (!creator || creator.deletedAt || creator.status === "BLOCKED") {
     throw new AppError(API_ERROR_CODES.FORBIDDEN, "Blocked or inactive members cannot create funds.", 403);
   }
+  if (input.admin && input.type !== "FAMILY_GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Admins can only create family funds.", 403);
+  }
+  if (!input.admin && input.type !== "GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Members can only create general funds.", 403);
+  }
 
   const fund = await prisma.familyFund.create({
     data: {
       title: input.title,
       description: input.description,
-      type: input.type ?? "FAMILY_GENERAL",
+      type: input.type ?? (input.admin ? "FAMILY_GENERAL" : "GENERAL"),
       status: input.admin ? input.status ?? "ACTIVE" : "ACTIVE",
       visibility: input.visibility ?? "ALL_FAMILY",
       targetAmount: input.targetAmount ?? null,
@@ -290,6 +302,12 @@ export async function createFund(input: FundPayload & { title: string }) {
 export async function updateFund(fundId: string, input: FundPayload) {
   const existing = await prisma.familyFund.findUnique({ where: { id: fundId } });
   if (!existing || existing.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Fund not found.", 404);
+  if (existing.type !== "FAMILY_GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Admin can only update family funds.", 403);
+  }
+  if (input.type && input.type !== "FAMILY_GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Family funds must keep the family fund type.", 403);
+  }
 
   const fund = await prisma.familyFund.update({
     where: { id: fundId },
@@ -330,6 +348,12 @@ export async function setFundStatus(input: {
   status: Extract<FundStatus, "CLOSED" | "CANCELLED" | "ARCHIVED">;
   actorMemberId: string;
 }) {
+  const existing = await prisma.familyFund.findUnique({ where: { id: input.fundId } });
+  if (!existing || existing.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Fund not found.", 404);
+  if (existing.type !== "FAMILY_GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Admin can only control family funds.", 403);
+  }
+
   const fund = await prisma.familyFund.update({
     where: { id: input.fundId },
     data: { status: input.status, updatedById: input.actorMemberId },

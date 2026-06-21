@@ -60,6 +60,12 @@ export async function listFundTransactions(input: {
 async function assertMemberCanRecordContribution(input: TransactionPayload) {
   const fund = await prisma.familyFund.findUnique({ where: { id: input.fundId } });
   if (!fund || fund.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Fund not found.", 404);
+  if (input.admin && fund.type !== "FAMILY_GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Admins can only control family funds.", 403);
+  }
+  if (!input.admin && fund.type !== "GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Members can only contribute to general funds.", 403);
+  }
   if (!input.admin && fund.status !== "ACTIVE") {
     throw new AppError(API_ERROR_CODES.FORBIDDEN, "Contributions are only open for active funds.", 403);
   }
@@ -146,6 +152,9 @@ export async function createFundTransaction(input: TransactionPayload) {
 export async function confirmFundTransaction(input: { transactionId: string; actorMemberId: string }) {
   const existing = await findFundTransactionById(input.transactionId);
   if (!existing || existing.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Transaction not found.", 404);
+  if (existing.fund.type !== "FAMILY_GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Admins can only approve family fund transactions.", 403);
+  }
   if (existing.status === "CONFIRMED") return toAdminFundTransactionDto(existing);
 
   const transaction = await prisma.$transaction(async (tx) => {
@@ -202,6 +211,9 @@ export async function confirmFundTransaction(input: { transactionId: string; act
 export async function rejectFundTransaction(input: { transactionId: string; actorMemberId: string; reason?: string | null }) {
   const existing = await findFundTransactionById(input.transactionId);
   if (!existing || existing.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Transaction not found.", 404);
+  if (existing.fund.type !== "FAMILY_GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Admins can only reject family fund transactions.", 403);
+  }
 
   const transaction = await prisma.$transaction(async (tx) => {
     const updated = await tx.fundTransaction.update({
@@ -252,4 +264,91 @@ export async function rejectFundTransaction(input: { transactionId: string; acto
   }
 
   return toAdminFundTransactionDto(transaction);
+}
+
+export async function confirmGeneralFundTransaction(input: { transactionId: string; actorMemberId: string }) {
+  const existing = await findFundTransactionById(input.transactionId);
+  if (!existing || existing.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Transaction not found.", 404);
+  if (existing.fund.type !== "GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Only general fund transactions can be approved in mobile.", 403);
+  }
+  if (existing.fund.createdById !== input.actorMemberId) {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Only the general fund creator can approve this transaction.", 403);
+  }
+  if (existing.status === "CONFIRMED") return toMobileFundTransactionDto(existing, "MEMBER");
+
+  const transaction = await prisma.$transaction(async (tx) => {
+    const updated = await tx.fundTransaction.update({
+      where: { id: input.transactionId },
+      data: {
+        status: "CONFIRMED",
+        confirmedById: input.actorMemberId,
+        confirmedAt: new Date(),
+        rejectedById: null,
+        rejectedAt: null,
+        rejectReason: null
+      },
+      include: {
+        fund: true,
+        contributor: true,
+        recipientMember: true,
+        recordedBy: true,
+        confirmedBy: true,
+        request: { include: { member: true } }
+      }
+    });
+    if (updated.requestId) await syncContributionRequestPaidAmount(updated.requestId, tx);
+    return updated;
+  });
+
+  await recordAuditLog({
+    actorMemberId: input.actorMemberId,
+    action: "general_fund_transaction_confirmed",
+    entityType: "FUND",
+    entityId: transaction.fundId,
+    metadata: { transactionId: transaction.id }
+  });
+
+  return toMobileFundTransactionDto(transaction, "MEMBER");
+}
+
+export async function rejectGeneralFundTransaction(input: { transactionId: string; actorMemberId: string; reason?: string | null }) {
+  const existing = await findFundTransactionById(input.transactionId);
+  if (!existing || existing.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Transaction not found.", 404);
+  if (existing.fund.type !== "GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Only general fund transactions can be rejected in mobile.", 403);
+  }
+  if (existing.fund.createdById !== input.actorMemberId) {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Only the general fund creator can reject this transaction.", 403);
+  }
+
+  const transaction = await prisma.fundTransaction.update({
+    where: { id: input.transactionId },
+    data: {
+      status: "REJECTED",
+      rejectedById: input.actorMemberId,
+      rejectedAt: new Date(),
+      rejectReason: input.reason,
+      confirmedById: null,
+      confirmedAt: null
+    },
+    include: {
+      fund: true,
+      contributor: true,
+      recipientMember: true,
+      recordedBy: true,
+      confirmedBy: true,
+      request: { include: { member: true } }
+    }
+  });
+
+  await recordAuditLog({
+    actorMemberId: input.actorMemberId,
+    action: "general_fund_transaction_rejected",
+    entityType: "FUND",
+    entityId: transaction.fundId,
+    metadata: { transactionId: transaction.id, reason: input.reason }
+  });
+
+  return toMobileFundTransactionDto(transaction, "MEMBER");
 }

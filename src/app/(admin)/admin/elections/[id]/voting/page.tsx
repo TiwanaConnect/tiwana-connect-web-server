@@ -13,7 +13,7 @@ export default async function ElectionVotingPage({ params }: Props) {
   const chain = await verifyBallotChain(id);
   const eligible = election?.voters.filter((voter) => voter.status === "ELIGIBLE" || voter.status === "VOTED").length ?? 0;
   const voted = election?.voters.filter((voter) => voter.hasVoted).length ?? 0;
-  const canOpen = election && ["CANDIDATES_ANNOUNCED", "VOTING_SCHEDULED"].includes(election.status);
+  const canOpen = election && ["ANNOUNCED", "NOMINATION_CLOSED"].includes(election.status);
   const canClose = election?.status === "VOTING_OPEN";
 
   return (

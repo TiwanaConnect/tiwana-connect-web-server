@@ -87,6 +87,9 @@ export async function createContributionRequests(input: {
 }) {
   const fund = await prisma.familyFund.findUnique({ where: { id: input.fundId } });
   if (!fund || fund.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Fund not found.", 404);
+  if (fund.type === "FAMILY_GENERAL") {
+    throw new AppError(API_ERROR_CODES.FORBIDDEN, "Contribution requests are only available for general funds.", 403);
+  }
   if (!input.admin && fund.status !== "ACTIVE") {
     throw new AppError(API_ERROR_CODES.FORBIDDEN, "Contribution requests are only open for active funds.", 403);
   }

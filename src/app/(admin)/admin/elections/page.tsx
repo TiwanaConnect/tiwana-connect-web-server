@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { ElectionActionButton } from "@/components/admin/elections/election-actions";
 import { LocalDateTimeRange } from "@/components/ui/local-date-time";
 import { prisma } from "@/lib/db/prisma";
 
@@ -35,10 +36,17 @@ export default async function ElectionsPage() {
                   <td className="px-4 py-3"><LocalDateTimeRange start={election.votingStartAt} end={election.votingEndAt} /></td>
                   <td className="px-4 py-3">{election.resultStatus}</td>
                   <td className="px-4 py-3">{winner?.member.fullName ?? winner?.member.alias ?? "-"}</td>
-                  <td className="px-4 py-3"><Link href={`/admin/elections/${election.id}`} className="text-primary">Open</Link></td>
-                </tr>
-              );
-            })}
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link href={`/admin/elections/${election.id}`} className="text-primary">Open</Link>
+                    {election.resultStatus === "FINALIZED" ? (
+                      <ElectionActionButton href={`/api/admin/elections/${election.id}/publish-result`} label="Publish" />
+                    ) : null}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
           </tbody>
         </table>
       </div>

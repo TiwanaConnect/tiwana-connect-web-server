@@ -411,14 +411,10 @@ async function upsertElection(input: {
   });
   const phaseRows: Array<[ElectionPhaseType, string, Date | undefined, Date | undefined]> = [
     [ElectionPhaseType.NOMINATION_OPEN, "Nomination Open", input.nominationStartAt, input.nominationEndAt],
-    [ElectionPhaseType.NOMINATION_CLOSED, "Nomination Closed", input.nominationEndAt, input.approvalDeadlineAt],
-    [ElectionPhaseType.NOMINATION_APPROVAL_COMPLETION, "Nomination Approval Completion", input.approvalDeadlineAt, input.candidatesAnnouncedAt],
-    [ElectionPhaseType.CANDIDATES_ANNOUNCED, "Candidates Announced", input.candidatesAnnouncedAt, input.votingStartAt],
+    [ElectionPhaseType.NOMINATION_CLOSED, "Nomination Closed", input.nominationEndAt, input.votingStartAt],
     [ElectionPhaseType.VOTING_OPEN, "Voting Open", input.votingStartAt, input.votingEndAt],
     [ElectionPhaseType.VOTING_CLOSED, "Voting Closed", input.votingEndAt, input.resultAnnouncedAt],
-    [ElectionPhaseType.RESULT_ANNOUNCED, "Result Announced", input.resultAnnouncedAt, input.ceremonyAt],
-    [ElectionPhaseType.PRESIDENT_AUTH_CEREMONY, "President Authorization Ceremony", input.ceremonyAt, undefined],
-    [ElectionPhaseType.COMPLETED, "Completed", undefined, undefined]
+    [ElectionPhaseType.RESULT_ANNOUNCED, "Result Announced", input.resultAnnouncedAt, input.ceremonyAt]
   ];
   for (const [type, title, startsAt, endsAt] of phaseRows) {
     await prisma.electionPhase.upsert({
@@ -698,7 +694,7 @@ async function main() {
     id: "seed-ramadan-zakat-fund",
     title: "Ramadan Zakat Fund",
     description: "Zakat ledger for Ramadan collections and disbursements.",
-    type: FundType.ZAKAT,
+    type: FundType.FAMILY_GENERAL,
     targetAmount: "500000",
     isOfficial: true,
     createdById: superAdmin.id
@@ -707,7 +703,7 @@ async function main() {
     id: "seed-eid-gathering-fund",
     title: "Eid Gathering Fund",
     description: "Event-specific contributions for the Eid gathering.",
-    type: FundType.EVENT,
+    type: FundType.FAMILY_GENERAL,
     targetAmount: "150000",
     isOfficial: true,
     createdById: superAdmin.id,

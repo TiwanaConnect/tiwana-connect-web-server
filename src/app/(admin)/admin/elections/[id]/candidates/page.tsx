@@ -13,7 +13,7 @@ export default async function ElectionCandidatesPage({ params }: Props) {
     where: { id },
     include: { candidates: { include: { member: true }, orderBy: { displayOrder: "asc" } } }
   });
-  const canAnnounce = election && !["CANDIDATES_ANNOUNCED", "VOTING_SCHEDULED", "VOTING_OPEN", "VOTING_CLOSED", "TALLYING", "RESULT_ANNOUNCED", "PRESIDENT_AUTH_CEREMONY", "COMPLETED", "CANCELLED"].includes(election.status);
+  const canAnnounce = election && !election.candidatesAnnouncedAt && !["VOTING_OPEN", "VOTING_CLOSED", "RESULT_ANNOUNCED", "COMPLETED", "CANCELLED"].includes(election.status);
 
   return (
     <div className="space-y-6">
