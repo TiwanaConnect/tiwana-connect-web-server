@@ -16,25 +16,32 @@ export function RelationshipDebugger({
 }) {
   const [result, setResult] = useState<RelationshipTreeResponse | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
+    setLoading(true);
     setMessage(null);
     const data = new FormData(event.currentTarget);
     const params = new URLSearchParams({
       startMemberId: String(data.get("startMemberId") ?? ""),
       targetMemberId: String(data.get("targetMemberId") ?? "")
     });
-    const response = await fetch(`/api/admin/family-tree/relationship?${params}`);
-    const json = (await response.json()) as ApiRelationshipResponse;
+    try {
+      const response = await fetch(`/api/admin/family-tree/relationship?${params}`);
+      const json = (await response.json()) as ApiRelationshipResponse;
 
-    if (!response.ok || !json.data) {
-      setResult(null);
-      setMessage(json.error?.message ?? "Unable to find relationship.");
-      return;
+      if (!response.ok || !json.data) {
+        setResult(null);
+        setMessage(json.error?.message ?? "Unable to find relationship.");
+        return;
+      }
+
+      setResult(json.data);
+    } finally {
+      setLoading(false);
     }
-
-    setResult(json.data);
   }
 
   return (
@@ -54,8 +61,8 @@ export function RelationshipDebugger({
             </option>
           ))}
         </select>
-        <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-          Find Relationship
+        <button disabled={loading} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+          {loading ? "Finding..." : "Find Relationship"}
         </button>
       </form>
       {message ? <p className="text-sm text-red-600">{message}</p> : null}

@@ -1,9 +1,3 @@
-export type MobileElectionTimelineItemDto = {
-  type: string;
-  title: string;
-  at: string;
-};
-
 export type MobileElectionCandidateDto = {
   id: string;
   memberId: string;
@@ -38,8 +32,11 @@ export type MobileElectionDto = {
   positionTitle: string;
   status: string;
   currentPhase: string;
-  timeline: MobileElectionTimelineItemDto[];
   nominationStatus: string | null;
+  nominationStartAt: string;
+  nominationEndAt: string;
+  votingStartAt: string;
+  votingEndAt: string;
   voteStatus: "not_open" | "eligible" | "already_voted" | "closed" | "not_eligible";
   hasVoted: boolean;
   voteReceiptHash?: string | null;

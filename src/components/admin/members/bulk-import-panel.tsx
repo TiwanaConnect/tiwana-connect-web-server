@@ -13,19 +13,26 @@ export function BulkImportPanel({ type }: { type: "members" | "relationships" })
     type === "members" ? DEFAULT_MEMBER_CSV : DEFAULT_RELATIONSHIP_CSV
   );
   const [result, setResult] = useState<unknown>(null);
+  const [loadingMode, setLoadingMode] = useState<"preview" | "import" | null>(null);
 
   async function submit(mode: "preview" | "import") {
+    if (loadingMode) return;
+    setLoadingMode(mode);
     const base =
       type === "members"
         ? "/api/admin/members"
         : "/api/admin/relationships";
-    const response = await fetch(`${base}/bulk-${mode}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ csv })
-    });
+    try {
+      const response = await fetch(`${base}/bulk-${mode}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ csv })
+      });
 
-    setResult(await response.json());
+      setResult(await response.json());
+    } finally {
+      setLoadingMode(null);
+    }
   }
 
   return (
@@ -37,11 +44,11 @@ export function BulkImportPanel({ type }: { type: "members" | "relationships" })
         className="w-full rounded-md border bg-background p-3 font-mono text-sm"
       />
       <div className="flex gap-2">
-        <button onClick={() => submit("preview")} className="rounded-md border px-4 py-2 text-sm font-medium">
-          Preview
+        <button disabled={Boolean(loadingMode)} onClick={() => submit("preview")} className="rounded-md border px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60">
+          {loadingMode === "preview" ? "Previewing..." : "Preview"}
         </button>
-        <button onClick={() => submit("import")} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-          Import valid rows
+        <button disabled={Boolean(loadingMode)} onClick={() => submit("import")} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+          {loadingMode === "import" ? "Importing..." : "Import valid rows"}
         </button>
       </div>
       {result ? (

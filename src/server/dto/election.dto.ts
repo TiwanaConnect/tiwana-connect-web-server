@@ -87,28 +87,10 @@ export function toMobileElectionDto(election: ElectionWithRelations, viewerMembe
     positionTitle: election.positionTitle,
     status: election.status,
     currentPhase: phase,
-    timeline: [
-      {
-        type: "NOMINATION_OPEN",
-        title: "Nominations Open",
-        at: election.nominationStartAt.toISOString()
-      },
-      {
-        type: "NOMINATION_CLOSED",
-        title: "Nominations Close",
-        at: election.nominationEndAt.toISOString()
-      },
-      {
-        type: "VOTING_OPEN",
-        title: "Voting Opens",
-        at: election.votingStartAt.toISOString()
-      },
-      {
-        type: "VOTING_CLOSED",
-        title: "Voting Closes",
-        at: election.votingEndAt.toISOString()
-      }
-    ],
+    nominationStartAt: election.nominationStartAt.toISOString(),
+    nominationEndAt: election.nominationEndAt.toISOString(),
+    votingStartAt: election.votingStartAt.toISOString(),
+    votingEndAt: election.votingEndAt.toISOString(),
     nominationStatus: nomination?.status ?? null,
     voteStatus: phase !== "VOTING_OPEN" ? (phase === "VOTING_CLOSED" || includeResult ? "closed" : "not_open") : voter?.hasVoted ? "already_voted" : voter?.status === "ELIGIBLE" ? "eligible" : "not_eligible",
     hasVoted: voter?.hasVoted ?? false,

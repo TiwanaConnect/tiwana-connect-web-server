@@ -13,9 +13,12 @@ export function FundTransactionForm({ fundId, members }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setMessage(null);
     const data = new FormData(event.currentTarget);
     const payload = {
@@ -30,22 +33,26 @@ export function FundTransactionForm({ fundId, members }: Props) {
       note: String(data.get("note") ?? ""),
       requestId: String(data.get("requestId") ?? "")
     };
-    const response = await fetch(`/api/admin/funds/${fundId}/transactions`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      const errorMessage = json.error?.message ?? "Request failed.";
-      setMessage(errorMessage);
-      toast.error(errorMessage);
-      return;
+    try {
+      const response = await fetch(`/api/admin/funds/${fundId}/transactions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        const errorMessage = json.error?.message ?? "Request failed.";
+        setMessage(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+      setMessage("Transaction recorded.");
+      toast.success("Transaction recorded.");
+      event.currentTarget.reset();
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
     }
-    setMessage("Transaction recorded.");
-    toast.success("Transaction recorded.");
-    event.currentTarget.reset();
-    router.refresh();
   }
 
   return (
@@ -79,7 +86,9 @@ export function FundTransactionForm({ fundId, members }: Props) {
         <input name="requestId" placeholder="Request ID" className="rounded-md border bg-background px-3 py-2 text-sm" />
       </div>
       <textarea name="note" rows={2} placeholder="Note" className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Record</button>
+      <button disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+        {isSubmitting ? "Recording..." : "Record"}
+      </button>
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
     </form>
   );

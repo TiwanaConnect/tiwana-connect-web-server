@@ -20,9 +20,12 @@ export function DirectorySettingsForm({
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setMessage(null);
     const data = new FormData(event.currentTarget);
     const payload = {
@@ -34,18 +37,22 @@ export function DirectorySettingsForm({
       bio: String(data.get("bio") ?? ""),
       availabilityNote: String(data.get("availabilityNote") ?? "")
     };
-    const response = await fetch(`/api/admin/directory/${memberId}/settings`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
-      return;
+    try {
+      const response = await fetch(`/api/admin/directory/${memberId}/settings`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setMessage(json.error?.message ?? "Request failed.");
+        return;
+      }
+      setMessage("Settings saved.");
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
     }
-    setMessage("Settings saved.");
-    router.refresh();
   }
 
   return (
@@ -64,7 +71,9 @@ export function DirectorySettingsForm({
       </div>
       <textarea name="bio" rows={3} defaultValue={setting.bio ?? ""} placeholder="Bio" className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
       <textarea name="availabilityNote" rows={2} defaultValue={setting.availabilityNote ?? ""} placeholder="Availability note" className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Save settings</button>
+      <button disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+        {isSubmitting ? "Saving..." : "Save settings"}
+      </button>
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
     </form>
   );
@@ -79,23 +88,30 @@ export function TagAssignmentForm({
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setMessage(null);
     const data = new FormData(event.currentTarget);
-    const response = await fetch(`/api/admin/members/${memberId}/tags`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ tagIds: data.getAll("tagIds").map(String).filter(Boolean) })
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
-      return;
+    try {
+      const response = await fetch(`/api/admin/members/${memberId}/tags`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tagIds: data.getAll("tagIds").map(String).filter(Boolean) })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setMessage(json.error?.message ?? "Request failed.");
+        return;
+      }
+      setMessage("Tags assigned.");
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
     }
-    setMessage("Tags assigned.");
-    router.refresh();
   }
 
   return (
@@ -104,7 +120,9 @@ export function TagAssignmentForm({
       <select name="tagIds" multiple className="h-44 w-full rounded-md border bg-background px-3 py-2 text-sm">
         {tags.map((tag) => <option key={tag.id} value={tag.id}>{tag.name} ({tag.type})</option>)}
       </select>
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Assign tags</button>
+      <button disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+        {isSubmitting ? "Assigning..." : "Assign tags"}
+      </button>
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
     </form>
   );
@@ -113,30 +131,37 @@ export function TagAssignmentForm({
 export function TagForm() {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setMessage(null);
     const data = new FormData(event.currentTarget);
-    const response = await fetch("/api/admin/tags", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        name: String(data.get("name") ?? ""),
-        slug: String(data.get("slug") ?? ""),
-        type: String(data.get("type") ?? "OTHER"),
-        description: String(data.get("description") ?? ""),
-        color: String(data.get("color") ?? "")
-      })
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
-      return;
+    try {
+      const response = await fetch("/api/admin/tags", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: String(data.get("name") ?? ""),
+          slug: String(data.get("slug") ?? ""),
+          type: String(data.get("type") ?? "OTHER"),
+          description: String(data.get("description") ?? ""),
+          color: String(data.get("color") ?? "")
+        })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setMessage(json.error?.message ?? "Request failed.");
+        return;
+      }
+      setMessage("Tag created.");
+      event.currentTarget.reset();
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
     }
-    setMessage("Tag created.");
-    event.currentTarget.reset();
-    router.refresh();
   }
 
   return (
@@ -147,7 +172,9 @@ export function TagForm() {
         {["SKILL", "PROFESSION", "CITY", "FAMILY_BRANCH", "INTEREST", "SERVICE", "OTHER"].map((type) => <option key={type} value={type}>{type}</option>)}
       </select>
       <input name="color" placeholder="#2563eb" className="rounded-md border bg-background px-3 py-2 text-sm" />
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Create</button>
+      <button disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+        {isSubmitting ? "Creating..." : "Create"}
+      </button>
       <input name="description" placeholder="Description" className="rounded-md border bg-background px-3 py-2 text-sm md:col-span-5" />
       {message ? <p className="text-sm text-muted-foreground md:col-span-5">{message}</p> : null}
     </form>
@@ -156,26 +183,40 @@ export function TagForm() {
 
 export function DisableTagButton({ tagId, active }: { tagId: string; active: boolean }) {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
   async function onClick() {
-    if (active) {
-      await fetch(`/api/admin/tags/${tagId}`, { method: "DELETE" });
-    } else {
-      await fetch(`/api/admin/tags/${tagId}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ isActive: true })
-      });
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      if (active) {
+        await fetch(`/api/admin/tags/${tagId}`, { method: "DELETE" });
+      } else {
+        await fetch(`/api/admin/tags/${tagId}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ isActive: true })
+        });
+      }
+      router.refresh();
+    } finally {
+      setIsLoading(false);
     }
-    router.refresh();
   }
-  return <button onClick={onClick} className="text-primary">{active ? "Disable" : "Enable"}</button>;
+  return <button disabled={isLoading} onClick={onClick} className="text-primary disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Working..." : active ? "Disable" : "Enable"}</button>;
 }
 
 export function HelpRequestCancelButton({ requestId }: { requestId: string }) {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
   async function onClick() {
-    await fetch(`/api/admin/help-requests/${requestId}/cancel`, { method: "POST" });
-    router.refresh();
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      await fetch(`/api/admin/help-requests/${requestId}/cancel`, { method: "POST" });
+      router.refresh();
+    } finally {
+      setIsLoading(false);
+    }
   }
-  return <button onClick={onClick} className="rounded-md border px-3 py-1 text-xs font-medium">Cancel</button>;
+  return <button disabled={isLoading} onClick={onClick} className="rounded-md border px-3 py-1 text-xs font-medium disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Cancelling..." : "Cancel"}</button>;
 }

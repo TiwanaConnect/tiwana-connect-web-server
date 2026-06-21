@@ -34,10 +34,13 @@ export function EventForm({ mode, event, members }: EventFormProps) {
   const router = useRouter();
   const toast = useToast();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isEdit = mode === "edit" && event;
 
   async function onSubmit(submitEvent: React.FormEvent<HTMLFormElement>) {
     submitEvent.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setMessage(null);
     const data = new FormData(submitEvent.currentTarget);
     const invitedMemberIds = data
@@ -61,24 +64,28 @@ export function EventForm({ mode, event, members }: EventFormProps) {
       ,
       inviteAudience: String(data.get("inviteAudience") ?? "MANUAL")
     };
-    const response = await fetch(isEdit ? `/api/admin/events/${event.id}` : "/api/admin/events", {
-      method: isEdit ? "PATCH" : "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const json = await response.json();
+    try {
+      const response = await fetch(isEdit ? `/api/admin/events/${event.id}` : "/api/admin/events", {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await response.json();
 
-    if (!response.ok) {
-      const errorMessage = json.error?.message ?? "Request failed.";
-      setMessage(errorMessage);
-      toast.error(errorMessage);
-      return;
+      if (!response.ok) {
+        const errorMessage = json.error?.message ?? "Request failed.";
+        setMessage(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      const successMessage = isEdit ? "Event updated." : "Event created.";
+      setMessage(successMessage);
+      toast.success(successMessage);
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const successMessage = isEdit ? "Event updated." : "Event created.";
-    setMessage(successMessage);
-    toast.success(successMessage);
-    router.refresh();
   }
 
   return (
@@ -165,8 +172,8 @@ export function EventForm({ mode, event, members }: EventFormProps) {
           </label>
         </div>
       ) : null}
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-        {isEdit ? "Save event" : "Create event"}
+      <button disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+        {isSubmitting ? "Saving..." : isEdit ? "Save event" : "Create event"}
       </button>
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
     </form>

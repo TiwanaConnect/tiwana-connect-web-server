@@ -14,9 +14,12 @@ function toDatetimeLocal(value: string | Date | null | undefined) {
 export function ElectionForm() {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setMessage(null);
     const data = new FormData(event.currentTarget);
     const payload = {
@@ -28,17 +31,21 @@ export function ElectionForm() {
       votingStartAt: new Date(String(data.get("votingStartAt"))).toISOString(),
       votingEndAt: new Date(String(data.get("votingEndAt"))).toISOString()
     };
-    const response = await fetch("/api/admin/elections", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
-      return;
+    try {
+      const response = await fetch("/api/admin/elections", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setMessage(json.error?.message ?? "Request failed.");
+        return;
+      }
+      router.push(`/admin/elections/${json.data.id}`);
+    } finally {
+      setIsSubmitting(false);
     }
-    router.push(`/admin/elections/${json.data.id}`);
   }
 
   return (
@@ -95,7 +102,9 @@ export function ElectionForm() {
           </label>
         </div>
       </section>
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">Create election</button>
+      <button disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+        {isSubmitting ? "Creating..." : "Create election"}
+      </button>
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
     </form>
   );
@@ -104,24 +113,33 @@ export function ElectionForm() {
 export function ElectionActionButton({ href, label, body }: { href: string; label: string; body?: unknown }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   async function run() {
+    if (isLoading) return;
+    setIsLoading(true);
     setMessage(null);
-    const response = await fetch(href, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
-      return;
+    try {
+      const response = await fetch(href, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setMessage(json.error?.message ?? "Request failed.");
+        return;
+      }
+      setMessage("Done.");
+      router.refresh();
+    } finally {
+      setIsLoading(false);
     }
-    setMessage("Done.");
-    router.refresh();
   }
   return (
     <span className="inline-flex items-center gap-2">
-      <button onClick={run} className="rounded-md border px-3 py-2 text-sm font-medium">{label}</button>
+      <button disabled={isLoading} onClick={run} className="rounded-md border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60">
+        {isLoading ? "Working..." : label}
+      </button>
       {message ? <span className="text-xs text-muted-foreground">{message}</span> : null}
     </span>
   );
@@ -144,28 +162,35 @@ export function ElectionTimelineForm({
 }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setMessage(null);
     const data = new FormData(event.currentTarget);
-    const response = await fetch(`/api/admin/elections/${electionId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        nominationStartAt: new Date(String(data.get("nominationStartAt"))).toISOString(),
-        nominationEndAt: new Date(String(data.get("nominationEndAt"))).toISOString(),
-        votingStartAt: new Date(String(data.get("votingStartAt"))).toISOString(),
-        votingEndAt: new Date(String(data.get("votingEndAt"))).toISOString()
-      })
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      setMessage(json.error?.message ?? "Request failed.");
-      return;
+    try {
+      const response = await fetch(`/api/admin/elections/${electionId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          nominationStartAt: new Date(String(data.get("nominationStartAt"))).toISOString(),
+          nominationEndAt: new Date(String(data.get("nominationEndAt"))).toISOString(),
+          votingStartAt: new Date(String(data.get("votingStartAt"))).toISOString(),
+          votingEndAt: new Date(String(data.get("votingEndAt"))).toISOString()
+        })
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setMessage(json.error?.message ?? "Request failed.");
+        return;
+      }
+      setMessage("Timeline dates saved.");
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
     }
-    setMessage("Timeline dates saved.");
-    router.refresh();
   }
 
   return (
@@ -188,7 +213,11 @@ export function ElectionTimelineForm({
           <input name="votingEndAt" required disabled={disabled} type="datetime-local" defaultValue={toDatetimeLocal(votingEndAt)} className="w-full rounded-md border bg-background px-3 py-2 text-sm disabled:bg-muted" />
         </label>
       </div>
-      {!disabled ? <button className="rounded-md border px-3 py-2 text-sm font-medium">Save dates</button> : null}
+      {!disabled ? (
+        <button disabled={isSubmitting} className="rounded-md border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60">
+          {isSubmitting ? "Saving..." : "Save dates"}
+        </button>
+      ) : null}
       {message ? <p className="text-xs text-muted-foreground">{message}</p> : null}
     </form>
   );

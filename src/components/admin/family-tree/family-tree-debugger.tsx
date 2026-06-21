@@ -24,6 +24,7 @@ export function FamilyTreeDebugger({
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setLoading(true);
     setMessage(null);
     const data = new FormData(event.currentTarget);
@@ -93,7 +94,7 @@ export function FamilyTreeDebugger({
           <option value="branch">Branch</option>
           <option value="full">Full</option>
         </select>
-        <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+        <button disabled={loading} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
           {loading ? "Loading..." : "Load Tree"}
         </button>
       </form>

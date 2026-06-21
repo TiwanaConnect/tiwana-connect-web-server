@@ -319,12 +319,6 @@ export type MobileHelpRequestDto = {
   completedAt: string | null;
 };
 
-export type MobileElectionTimelineItemDto = {
-  type: string;
-  title: string;
-  at: string;
-};
-
 export type MobileElectionCandidateDto = {
   id: string;
   memberId: string;
@@ -359,7 +353,10 @@ export type MobileElectionDto = {
   positionTitle: string;
   status: string;
   currentPhase: string;
-  timeline: MobileElectionTimelineItemDto[];
+  nominationStartAt: string;
+  nominationEndAt: string;
+  votingStartAt: string;
+  votingEndAt: string;
   nominationStatus: string | null;
   voteStatus: "not_open" | "eligible" | "already_voted" | "closed" | "not_eligible";
   hasVoted: boolean;

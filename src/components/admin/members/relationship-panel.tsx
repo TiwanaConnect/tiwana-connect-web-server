@@ -6,22 +6,29 @@ import { useRouter } from "next/navigation";
 export function RelationshipPanel({ memberId }: { memberId: string }) {
   const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const response = await fetch(`/api/admin/members/${memberId}/relationships`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        toMemberId: data.get("toMemberId"),
-        type: data.get("type")
-      })
-    });
-    const json = await response.json();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const data = new FormData(event.currentTarget);
+      const response = await fetch(`/api/admin/members/${memberId}/relationships`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          toMemberId: data.get("toMemberId"),
+          type: data.get("type")
+        })
+      });
+      const json = await response.json();
 
-    setMessage(response.ok ? "Relationship added." : json.error?.message ?? "Request failed.");
-    router.refresh();
+      setMessage(response.ok ? "Relationship added." : json.error?.message ?? "Request failed.");
+      router.refresh();
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -32,8 +39,8 @@ export function RelationshipPanel({ memberId }: { memberId: string }) {
           <option key={type} value={type}>{type}</option>
         ))}
       </select>
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-        Add
+      <button disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+        {isSubmitting ? "Adding..." : "Add"}
       </button>
       {message ? <p className="text-sm text-muted-foreground md:col-span-3">{message}</p> : null}
     </form>

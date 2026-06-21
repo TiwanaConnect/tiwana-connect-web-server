@@ -33,10 +33,13 @@ export function FundForm({ mode, fund }: FundFormProps) {
   const router = useRouter();
   const toast = useToast();
   const [message, setMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const isEdit = mode === "edit" && fund;
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setMessage(null);
     const data = new FormData(event.currentTarget);
     const payload = {
@@ -53,23 +56,27 @@ export function FundForm({ mode, fund }: FundFormProps) {
       endAt: data.get("endAt") ? new Date(String(data.get("endAt"))).toISOString() : "",
       relatedEventId: String(data.get("relatedEventId") ?? "")
     };
-    const response = await fetch(isEdit ? `/api/admin/funds/${fund.id}` : "/api/admin/funds", {
-      method: isEdit ? "PATCH" : "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      const errorMessage = json.error?.message ?? "Request failed.";
-      setMessage(errorMessage);
-      toast.error(errorMessage);
-      return;
+    try {
+      const response = await fetch(isEdit ? `/api/admin/funds/${fund.id}` : "/api/admin/funds", {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        const errorMessage = json.error?.message ?? "Request failed.";
+        setMessage(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+      const successMessage = isEdit ? "Fund updated." : "Fund created.";
+      setMessage(successMessage);
+      toast.success(successMessage);
+      router.refresh();
+      if (!isEdit && json.data?.id) router.push(`/admin/funds/${json.data.id}`);
+    } finally {
+      setIsSubmitting(false);
     }
-    const successMessage = isEdit ? "Fund updated." : "Fund created.";
-    setMessage(successMessage);
-    toast.success(successMessage);
-    router.refresh();
-    if (!isEdit && json.data?.id) router.push(`/admin/funds/${json.data.id}`);
   }
 
   return (
@@ -135,8 +142,8 @@ export function FundForm({ mode, fund }: FundFormProps) {
           Pin fund
         </label>
       </div>
-      <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-        {isEdit ? "Save fund" : "Create fund"}
+      <button disabled={isSubmitting} className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60">
+        {isSubmitting ? "Saving..." : isEdit ? "Save fund" : "Create fund"}
       </button>
       {message ? <p className="text-sm text-muted-foreground">{message}</p> : null}
     </form>
