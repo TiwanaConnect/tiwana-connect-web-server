@@ -6,6 +6,28 @@ import { prisma } from "@/lib/db/prisma";
 
 import { recordAuditLog } from "./audit.service";
 
+async function addMemberToOpenElectionVoterLists(memberId: string) {
+  const elections = await prisma.election.findMany({
+    where: {
+      deletedAt: null,
+      status: { notIn: ["COMPLETED", "CANCELLED"] }
+    },
+    select: { id: true }
+  });
+
+  if (elections.length === 0) return 0;
+
+  const result = await prisma.electionVoter.createMany({
+    data: elections.map((election) => ({
+      electionId: election.id,
+      memberId
+    })),
+    skipDuplicates: true
+  });
+
+  return result.count;
+}
+
 export async function generateLoginAccess(input: {
   memberId: string;
   username: string;
@@ -57,11 +79,13 @@ export async function generateLoginAccess(input: {
     entityType: "USER_ACCOUNT",
     entityId: account.id
   });
+  const eligibleElectionsAdded = await addMemberToOpenElectionVoterLists(input.memberId);
 
   return {
     memberId: input.memberId,
     username: account.username,
-    temporaryPassword
+    temporaryPassword,
+    eligibleElectionsAdded
   };
 }
 

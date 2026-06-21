@@ -34,6 +34,8 @@ type FundPayload = {
   admin?: boolean;
 };
 
+const MOBILE_GENERAL_FUND_TYPES: FundType[] = ["GENERAL", "OTHER"];
+
 function parseDate(value?: string | null) {
   if (!value) return null;
   const date = new Date(value);
@@ -100,7 +102,7 @@ export async function listMobileFunds(input: {
   const funds = await findFunds({
     where: {
       ...mobileVisibilityWhere(input.memberId),
-      type: "GENERAL",
+      type: { in: MOBILE_GENERAL_FUND_TYPES },
       ...(input.q
         ? {
             OR: [
@@ -133,7 +135,7 @@ export async function getFundDetail(input: {
   if (input.admin && fund.type !== "FAMILY_GENERAL") {
     throw new AppError(API_ERROR_CODES.FORBIDDEN, "Admin can only access family funds.", 403);
   }
-  if (!input.admin && fund.type !== "GENERAL") {
+  if (!input.admin && !MOBILE_GENERAL_FUND_TYPES.includes(fund.type)) {
     throw new AppError(API_ERROR_CODES.FORBIDDEN, "Mobile can only access general funds.", 403);
   }
 

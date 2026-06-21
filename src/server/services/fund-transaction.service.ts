@@ -1,4 +1,4 @@
-import type { FundTransactionStatus, FundTransactionType, Prisma, UserRole } from "@prisma/client";
+import type { FundTransactionStatus, FundTransactionType, FundType, Prisma, UserRole } from "@prisma/client";
 
 import { API_ERROR_CODES, AppError } from "@/lib/api/errors";
 import { prisma } from "@/lib/db/prisma";
@@ -24,6 +24,8 @@ type TransactionPayload = {
   actorMemberId: string;
   admin?: boolean;
 };
+
+const MOBILE_GENERAL_FUND_TYPES: FundType[] = ["GENERAL", "OTHER"];
 
 export async function listFundTransactions(input: {
   fundId?: string;
@@ -63,7 +65,7 @@ async function assertMemberCanRecordContribution(input: TransactionPayload) {
   if (input.admin && fund.type !== "FAMILY_GENERAL") {
     throw new AppError(API_ERROR_CODES.FORBIDDEN, "Admins can only control family funds.", 403);
   }
-  if (!input.admin && fund.type !== "GENERAL") {
+  if (!input.admin && !MOBILE_GENERAL_FUND_TYPES.includes(fund.type)) {
     throw new AppError(API_ERROR_CODES.FORBIDDEN, "Members can only contribute to general funds.", 403);
   }
   if (!input.admin && fund.status !== "ACTIVE") {
@@ -269,7 +271,7 @@ export async function rejectFundTransaction(input: { transactionId: string; acto
 export async function confirmGeneralFundTransaction(input: { transactionId: string; actorMemberId: string }) {
   const existing = await findFundTransactionById(input.transactionId);
   if (!existing || existing.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Transaction not found.", 404);
-  if (existing.fund.type !== "GENERAL") {
+  if (!MOBILE_GENERAL_FUND_TYPES.includes(existing.fund.type)) {
     throw new AppError(API_ERROR_CODES.FORBIDDEN, "Only general fund transactions can be approved in mobile.", 403);
   }
   if (existing.fund.createdById !== input.actorMemberId) {
@@ -315,7 +317,7 @@ export async function confirmGeneralFundTransaction(input: { transactionId: stri
 export async function rejectGeneralFundTransaction(input: { transactionId: string; actorMemberId: string; reason?: string | null }) {
   const existing = await findFundTransactionById(input.transactionId);
   if (!existing || existing.deletedAt) throw new AppError(API_ERROR_CODES.NOT_FOUND, "Transaction not found.", 404);
-  if (existing.fund.type !== "GENERAL") {
+  if (!MOBILE_GENERAL_FUND_TYPES.includes(existing.fund.type)) {
     throw new AppError(API_ERROR_CODES.FORBIDDEN, "Only general fund transactions can be rejected in mobile.", 403);
   }
   if (existing.fund.createdById !== input.actorMemberId) {

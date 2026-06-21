@@ -1,5 +1,7 @@
 import crypto from "crypto";
 
+import { API_ERROR_CODES, AppError } from "@/lib/api/errors";
+
 type VotePayload = {
   electionId: string;
   candidateId: string;
@@ -9,15 +11,21 @@ type VotePayload = {
 
 function encryptionKey() {
   const raw = process.env.ELECTION_VOTE_ENCRYPTION_KEY;
-  if (!raw) throw new Error("ELECTION_VOTE_ENCRYPTION_KEY is required to cast or tally votes.");
+  if (!raw) {
+    throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "ELECTION_VOTE_ENCRYPTION_KEY is required to cast or tally votes.", 500);
+  }
   const key = Buffer.from(raw, "base64");
-  if (key.length !== 32) throw new Error("ELECTION_VOTE_ENCRYPTION_KEY must decode to 32 bytes.");
+  if (key.length !== 32) {
+    throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "ELECTION_VOTE_ENCRYPTION_KEY must be a base64 value that decodes to exactly 32 bytes.", 500);
+  }
   return key;
 }
 
 function hashSecret() {
   const secret = process.env.ELECTION_HASH_SECRET;
-  if (!secret) throw new Error("ELECTION_HASH_SECRET is required to cast or tally votes.");
+  if (!secret) {
+    throw new AppError(API_ERROR_CODES.VALIDATION_ERROR, "ELECTION_HASH_SECRET is required to cast or tally votes.", 500);
+  }
   return secret;
 }
 
